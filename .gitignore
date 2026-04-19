@@ -1,0 +1,10 @@
+PROGRESS.md
+.pytest_cache/
+.pytest_cache_local/
+.pytest_tmp/
+__pycache__/
+*.pyc
+.venv/
+outputs/
+dist/
+build/
