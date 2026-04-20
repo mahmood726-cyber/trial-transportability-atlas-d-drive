@@ -9,6 +9,11 @@ from trial_transportability_atlas.context_join import (
     enrich_trial_country_year_iso3,
     materialize_context_join,
 )
+from tests.test_source_adapters import (
+    build_ihme_fixture_repo,
+    build_wb_fixture_repo,
+    build_who_fixture_repo,
+)
 
 
 def test_enrich_trial_country_year_iso3_resolves_country_names() -> None:
@@ -91,48 +96,9 @@ def test_materialize_context_join_writes_context_joined(tmp_path: Path) -> None:
         ]
     ).to_parquet(trial_output_dir / "trial_country_year.parquet", index=False)
 
-    ihme_root = tmp_path / "ihme"
-    datasets = ihme_root / "datasets"
-    datasets.mkdir(parents=True)
-    pd.DataFrame(
-        [
-            {
-                "location": "United Kingdom",
-                "year": 2020,
-                "measure": "Deaths",
-                "metric": "Number",
-                "cause": "All causes",
-                "value": 10.0,
-            }
-        ]
-    ).to_parquet(datasets / "gbd2023_all_burden_204countries_1990_2023.parquet", index=False)
-    pd.DataFrame(
-        [{"location": "United Kingdom", "year": 2020, "population": 1000}]
-    ).to_parquet(datasets / "gbd2023_population_204countries_1990_2023.parquet", index=False)
-    pd.DataFrame(
-        [{"location": "United Kingdom", "year": 2020, "sdi": 0.8}]
-    ).to_parquet(datasets / "gbd2021_sdi_1950_2021.parquet", index=False)
-
-    # Initialize empty mock silver dirs to satisfy loaders
-    wb_root = tmp_path / "mock_wb"
-    who_root = tmp_path / "mock_who"
-    (wb_root / "data" / "silver" / "wdi" / "harmonized").mkdir(parents=True)
-    (who_root / "data" / "silver" / "gho" / "observations_wide").mkdir(parents=True)
-    (who_root / "data" / "silver" / "ghed").mkdir(parents=True)
-    
-    # Create empty parquets to satisfy exists() checks
-    pd.DataFrame(columns=["iso3c", "year", "value"]).to_parquet(
-        wb_root / "data" / "silver" / "wdi" / "harmonized" / "NY.GDP.PCAP.CD.parquet"
-    )
-    pd.DataFrame(columns=["iso3c", "year", "value"]).to_parquet(
-        wb_root / "data" / "silver" / "wdi" / "harmonized" / "SH.H2O.BASW.ZS.parquet"
-    )
-    pd.DataFrame(columns=["spatial_dim", "time_dim", "numeric_value"]).to_parquet(
-        who_root / "data" / "silver" / "gho" / "observations_wide" / "WHOSIS_000001.parquet"
-    )
-    pd.DataFrame(columns=["location", "year", "che_gdp"]).to_parquet(
-        who_root / "data" / "silver" / "ghed" / "ghed_data.parquet"
-    )
+    ihme_root = build_ihme_fixture_repo(tmp_path / "ihme")
+    wb_root = build_wb_fixture_repo(tmp_path / "wb")
+    who_root = build_who_fixture_repo(tmp_path / "who")
 
     summary = materialize_context_join(
         trial_output_dir=trial_output_dir,
@@ -142,10 +108,15 @@ def test_materialize_context_join_writes_context_joined(tmp_path: Path) -> None:
     )
     joined = pd.read_parquet(trial_output_dir / "context_joined.parquet")
 
-    assert summary["context_rows"] == 3
-    assert summary["context_available_rows"] == 3
+    assert summary["context_rows"] == 15
+    assert summary["context_available_rows"] == 15
     assert summary["unresolved_trial_rows"] == 0
-    assert sorted(summary["distinct_context_measures"]) == ["Deaths", "population", "sdi"]
+    assert "Deaths" in summary["distinct_context_measures"]
+    assert "Population, total" in summary["distinct_context_measures"]
+    assert "Life expectancy at birth (years)" in summary["distinct_context_measures"]
+    assert "Current health expenditure (% of GDP)" in summary["distinct_context_measures"]
+    assert "wb_uhc" in summary["distinct_context_sources"]
+    assert "who_ghed" in summary["distinct_context_sources"]
     assert Path(summary["outputs"]["context_joined"]).exists()
     assert Path(summary["outputs"]["context_join_manifest"]).exists()
-    assert len(joined) == 3
+    assert len(joined) == 15

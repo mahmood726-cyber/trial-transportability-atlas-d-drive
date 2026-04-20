@@ -10,7 +10,12 @@ from .contracts import (
 )
 from .country_iso3 import country_name_to_iso3
 from .project_paths import discover_aact_snapshot, discover_external_paths
-from .source_adapters import load_ihme_context
+from .source_adapters import (
+    load_ihme_context,
+    load_unified_context,
+    load_wb_context,
+    load_who_context,
+)
 from .topics import (
     FrozenTopic,
     PHASE1_TOPIC,
@@ -34,6 +39,9 @@ __all__ = [
     "extract_trial_outcomes",
     "load_frozen_topic",
     "load_ihme_context",
+    "load_unified_context",
+    "load_wb_context",
+    "load_who_context",
     "materialize_context_join",
     "normalize_text",
     "select_topic_nct_ids",

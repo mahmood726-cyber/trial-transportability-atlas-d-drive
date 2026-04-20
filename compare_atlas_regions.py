@@ -33,6 +33,8 @@ def generate_regional_comparison():
         "gdp_per_capita": "GDP pc (USD)",
         "basic_water_access": "Water Access (%)",
         "che_gdp": "Health Exp (% GDP)",
+        "physician_density": "Physicians (per 10k)",
+        "uhc_service_coverage": "UHC Index",
         "population": "Avg Pop (M)"
     }
     
@@ -50,12 +52,18 @@ def generate_regional_comparison():
         f.write("This report synthesizes IHME, WHO, and World Bank data for countries participating in Sacubitril/Valsartan trials.\n\n")
         f.write(final_report.round(2).to_markdown() + "\n\n")
         f.write("## Data Coverage Warning\n")
-        f.write("- **Africa**: Data coverage for the African trial sites (ZAF, EGY) is currently limited to IHME 2014 snapshots. WHO and WB data for these specific sites in the atlas time-window are pending.\n\n")
+        f.write("- **Africa**: Data coverage for the African trial sites (ZAF, EGY) is currently limited to IHME snapshots. WHO/WB indicators like Physician Density for these specific site-years are pending.\n\n")
         f.write("## Key Disparities (Based on Available Data)\n")
+        
+        # New Clinical Readiness Insights
+        if "North America" in final_report.index and "South America" in final_report.index:
+            if "Physicians (per 10k)" in final_report.columns:
+                f.write(f"- **Clinical Workforce**: North America has ~{final_report.loc['North America', 'Physicians (per 10k)'].round(1)} physicians per 10k, compared to {final_report.loc['South America', 'Physicians (per 10k)'].round(1)} in South American trial sites.\n")
+            if "UHC Index" in final_report.columns:
+                f.write(f"- **UHC Coverage**: The UHC Service Coverage index for Asian trial sites (~{final_report.loc['Asia', 'UHC Index'].round(1)}) shows significant maturity, rivaling South America.\n")
+        
         if "North America" in final_report.index and "South America" in final_report.index:
             f.write(f"- **The Americas Gap**: North America's GDP per capita in the trial cohort is ~${(final_report.loc['North America', 'GDP pc (USD)'] - final_report.loc['South America', 'GDP pc (USD)']).round(0)} higher than South American sites.\n")
-        if "Asia" in final_report.index:
-             f.write(f"- **Asian Maturity**: Asian trial sites show high water access (~{final_report.loc['Asia', 'Water Access (%)'].round(1)}%), reaching parity with North America.\n")
 
 if __name__ == "__main__":
     generate_regional_comparison()
