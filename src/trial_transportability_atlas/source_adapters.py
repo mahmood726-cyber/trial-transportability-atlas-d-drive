@@ -28,6 +28,7 @@ class WbDatasetPaths:
     poverty: Path
     hnp: Path
     uhc: Path
+    gdp: Path
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,7 @@ def resolve_wb_dataset_paths(repo_root: Path) -> WbDatasetPaths:
         poverty=silver_dir / "poverty" / "harmonized" / "SI.POV.GINI.parquet",
         hnp=silver_dir / "hnp" / "harmonized" / "SH.MED.PHYS.ZS.parquet",
         uhc=silver_dir / "uhc" / "harmonized" / "SH.UHC.NOP1.ZG.parquet",
+        gdp=silver_dir / "wdi" / "harmonized" / "NY.GDP.PCAP.CD.parquet",
     )
     missing = [str(path) for path in paths.__dict__.values() if not path.exists()]
     if missing:
@@ -451,6 +453,11 @@ def load_wb_context(repo_root: Path) -> pd.DataFrame:
             pd.read_parquet(paths.uhc),
             source_name="wb_uhc",
             source_file=paths.uhc,
+        ),
+        _normalize_wb_harmonized_frame(
+            pd.read_parquet(paths.gdp),
+            source_name="wb_gdp",
+            source_file=paths.gdp,
         ),
     ]
     return _finalize_context(pd.concat(frames, ignore_index=True))
