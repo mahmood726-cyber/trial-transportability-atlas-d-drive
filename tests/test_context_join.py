@@ -78,6 +78,39 @@ def test_build_context_joined_expands_long_context_rows() -> None:
     assert sorted(joined["measure"].tolist()) == ["population", "sdi"]
 
 
+def test_build_context_joined_does_not_carry_forward_older_context() -> None:
+    trial = pd.DataFrame(
+        [
+            {"nct_id": "N1", "country_name": "United Kingdom", "iso3": "GBR", "year": 2021},
+        ]
+    )
+    context = pd.DataFrame(
+        [
+            {
+                "iso3": "GBR",
+                "year": 2020,
+                "sex": None,
+                "age_group": None,
+                "measure": "population",
+                "metric": "population",
+                "value": 1000,
+                "source": "ihme_population",
+                "source_file": "x",
+                "source_version": "x",
+                "location_name": "United Kingdom",
+                "provenance": "x",
+            },
+        ]
+    )
+
+    joined = build_context_joined(trial, context)
+
+    assert len(joined) == 1
+    assert bool(joined.loc[0, "context_available_flag"]) is False
+    assert pd.isna(joined.loc[0, "value"])
+    assert "is_carried_forward" not in joined.columns
+
+
 def test_materialize_context_join_writes_context_joined(tmp_path: Path) -> None:
     trial_output_dir = tmp_path / "outputs"
     trial_output_dir.mkdir(parents=True)
@@ -108,15 +141,17 @@ def test_materialize_context_join_writes_context_joined(tmp_path: Path) -> None:
     )
     joined = pd.read_parquet(trial_output_dir / "context_joined.parquet")
 
-    assert summary["context_rows"] == 15
-    assert summary["context_available_rows"] == 15
+    assert summary["context_rows"] == 16
+    assert summary["context_available_rows"] == 16
     assert summary["unresolved_trial_rows"] == 0
     assert "Deaths" in summary["distinct_context_measures"]
     assert "Population, total" in summary["distinct_context_measures"]
     assert "Life expectancy at birth (years)" in summary["distinct_context_measures"]
     assert "Current health expenditure (% of GDP)" in summary["distinct_context_measures"]
+    assert "GDP per capita (current US$)" in summary["distinct_context_measures"]
     assert "wb_uhc" in summary["distinct_context_sources"]
+    assert "wb_gdp" in summary["distinct_context_sources"]
     assert "who_ghed" in summary["distinct_context_sources"]
     assert Path(summary["outputs"]["context_joined"]).exists()
     assert Path(summary["outputs"]["context_join_manifest"]).exists()
-    assert len(joined) == 15
+    assert len(joined) == 16

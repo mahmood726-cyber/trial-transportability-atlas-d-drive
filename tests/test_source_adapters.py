@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import warnings
 
 import pandas as pd
 
@@ -64,6 +65,7 @@ def build_wb_fixture_repo(repo_root: Path) -> Path:
             "Increase in poverty gap due to out-of-pocket health care expenditure",
             0.2,
         ),
+        ("wdi", "NY.GDP.PCAP.CD.parquet", "wb_NY.GDP.PCAP.CD", "GDP per capita (current US$)", 45000.0),
     ]
     for domain, filename, indicator_code, indicator_name, value in specs:
         path = silver_dir / domain / "harmonized" / filename
@@ -222,13 +224,14 @@ def test_load_ihme_context_normalizes_minimal_fixture_repo(tmp_path: Path) -> No
 def test_load_wb_context_normalizes_curated_harmonized_files(tmp_path: Path) -> None:
     context = load_wb_context(build_wb_fixture_repo(tmp_path / "wb"))
 
-    assert len(context) == 5
+    assert len(context) == 6
     assert set(context["source"].unique().tolist()) == {
         "wb_population",
         "wb_governance",
         "wb_poverty",
         "wb_hnp",
         "wb_uhc",
+        "wb_gdp",
     }
     assert set(context["iso3"].unique().tolist()) == {"GBR"}
     assert "AFE" not in context["location_name"].tolist()
@@ -246,13 +249,15 @@ def test_load_who_context_normalizes_gho_and_ghed_sources(tmp_path: Path) -> Non
 
 
 def test_load_unified_context_concatenates_all_sources(tmp_path: Path) -> None:
-    context = load_unified_context(
-        ihme_repo_root=build_ihme_fixture_repo(tmp_path / "ihme"),
-        wb_repo_root=build_wb_fixture_repo(tmp_path / "wb"),
-        who_repo_root=build_who_fixture_repo(tmp_path / "who"),
-    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        context = load_unified_context(
+            ihme_repo_root=build_ihme_fixture_repo(tmp_path / "ihme"),
+            wb_repo_root=build_wb_fixture_repo(tmp_path / "wb"),
+            who_repo_root=build_who_fixture_repo(tmp_path / "who"),
+        )
 
-    assert len(context) == 15
+    assert len(context) == 16
     assert {
         "ihme_burden",
         "ihme_population",
@@ -262,6 +267,11 @@ def test_load_unified_context_concatenates_all_sources(tmp_path: Path) -> None:
         "wb_poverty",
         "wb_hnp",
         "wb_uhc",
+        "wb_gdp",
         "who_gho",
         "who_ghed",
     }.issubset(set(context["source"].unique().tolist()))
+    assert not any(
+        "DataFrame concatenation with empty or all-NA entries" in str(warning.message)
+        for warning in caught
+    )

@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 
 import pandas as pd
 
+from trial_transportability_atlas.contracts import SYNTHESIS_OUTPUT_CONTRACT
 from trial_transportability_atlas.context_join import enrich_trial_country_year_iso3
+from trial_transportability_atlas.topics import PHASE1_TOPIC, TopicSpec, resolve_topic_spec
 
 
 @dataclass(frozen=True)
@@ -320,6 +323,29 @@ def build_country_year_transportability(
     return merged.sort_values(sort_columns, ascending=[False, True, True], kind="stable").reset_index(drop=True)
 
 
+def build_synthesis_output(
+    country_year_transportability: pd.DataFrame,
+    *,
+    topic: TopicSpec,
+    source_manifest_id: str,
+) -> pd.DataFrame:
+    """Add the canonical synthesis-output contract columns to transportability rows."""
+
+    synthesis = country_year_transportability.copy()
+    synthesis["intervention_name"] = topic.intervention_label
+    synthesis["condition_name"] = topic.condition_label
+    synthesis["effect_measure"] = pd.Series([pd.NA] * len(synthesis), dtype="object")
+    synthesis["effect_value"] = pd.Series([pd.NA] * len(synthesis), dtype="Float64")
+    synthesis["effect_precision"] = pd.Series([pd.NA] * len(synthesis), dtype="Float64")
+    synthesis["source_manifest_id"] = source_manifest_id
+
+    contract_columns = list(SYNTHESIS_OUTPUT_CONTRACT.required_columns)
+    extra_columns = [column for column in synthesis.columns if column not in contract_columns]
+    synthesis = synthesis[contract_columns + extra_columns]
+    SYNTHESIS_OUTPUT_CONTRACT.validate_columns(synthesis.columns)
+    return synthesis
+
+
 def build_evidence_gap_summary(country_year_transportability: pd.DataFrame) -> pd.DataFrame:
     """Aggregate country-year transportability rows into one country summary row."""
 
@@ -438,38 +464,92 @@ def render_evidence_gap_summary_markdown(summary: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def materialize_transportability_outputs(trial_output_dir: Path) -> dict[str, object]:
+def _hash_source_paths(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in paths:
+        if not path.exists():
+            continue
+        digest.update(str(path.name).encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _resolve_transport_topic(trial_output_dir: Path, explicit_topic: TopicSpec | None) -> TopicSpec:
+    if explicit_topic is not None:
+        return explicit_topic
+
+    run_manifest_path = trial_output_dir / "run_manifest.json"
+    if run_manifest_path.exists():
+        run_manifest = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+        slug = run_manifest.get("topic_slug")
+        if slug:
+            return resolve_topic_spec(str(slug))
+    return PHASE1_TOPIC
+
+
+def materialize_transportability_outputs(
+    trial_output_dir: Path,
+    *,
+    topic: TopicSpec | None = None,
+) -> dict[str, object]:
     """Write transportability-scored country-year outputs from existing parquet surfaces."""
 
-    trial_country_year = pd.read_parquet(trial_output_dir / "trial_country_year.parquet")
-    effect_candidates = pd.read_parquet(trial_output_dir / "effect_candidates.parquet")
-    context_joined = pd.read_parquet(trial_output_dir / "context_joined.parquet")
+    trial_output_dir = Path(trial_output_dir)
+    trial_country_year_path = trial_output_dir / "trial_country_year.parquet"
+    effect_candidates_path = trial_output_dir / "effect_candidates.parquet"
+    context_joined_path = trial_output_dir / "context_joined.parquet"
+    run_manifest_path = trial_output_dir / "run_manifest.json"
+    context_manifest_path = trial_output_dir / "context_join_manifest.json"
+
+    trial_country_year = pd.read_parquet(trial_country_year_path)
+    effect_candidates = pd.read_parquet(effect_candidates_path)
+    context_joined = pd.read_parquet(context_joined_path)
+    resolved_topic = _resolve_transport_topic(trial_output_dir, topic)
+    source_manifest_id = _hash_source_paths(
+        [
+            run_manifest_path,
+            context_manifest_path,
+            trial_country_year_path,
+            effect_candidates_path,
+            context_joined_path,
+        ]
+    )
 
     country_year = build_country_year_transportability(
         trial_country_year=trial_country_year,
         effect_candidates=effect_candidates,
         context_joined=context_joined,
     )
-    summary = build_evidence_gap_summary(country_year)
+    synthesis_output = build_synthesis_output(
+        country_year,
+        topic=resolved_topic,
+        source_manifest_id=source_manifest_id,
+    )
+    summary = build_evidence_gap_summary(synthesis_output)
     markdown = render_evidence_gap_summary_markdown(summary)
 
     country_year_path = trial_output_dir / "transportability_country_year.parquet"
+    synthesis_output_path = trial_output_dir / "synthesis_output.parquet"
     summary_path = trial_output_dir / "evidence_gap_summary.parquet"
     markdown_path = trial_output_dir / "evidence_gap_summary.md"
     manifest_path = trial_output_dir / "transportability_manifest.json"
 
-    country_year.to_parquet(country_year_path, index=False)
+    synthesis_output.to_parquet(country_year_path, index=False)
+    synthesis_output.to_parquet(synthesis_output_path, index=False)
     summary.to_parquet(summary_path, index=False)
     markdown_path.write_text(markdown, encoding="utf-8")
 
     manifest = {
-        "country_year_rows": int(len(country_year)),
+        "topic_slug": resolved_topic.slug,
+        "source_manifest_id": source_manifest_id,
+        "country_year_rows": int(len(synthesis_output)),
         "summary_rows": int(len(summary)),
         "core_signal_keys": [spec.key for spec in CORE_SIGNAL_SPECS],
-        "max_transportability_score": float(country_year["transportability_score"].max()) if not country_year.empty else 0.0,
-        "min_transportability_score": float(country_year["transportability_score"].min()) if not country_year.empty else 0.0,
+        "max_transportability_score": float(synthesis_output["transportability_score"].max()) if not synthesis_output.empty else 0.0,
+        "min_transportability_score": float(synthesis_output["transportability_score"].min()) if not synthesis_output.empty else 0.0,
         "outputs": {
             "transportability_country_year": str(country_year_path),
+            "synthesis_output": str(synthesis_output_path),
             "evidence_gap_summary": str(summary_path),
             "evidence_gap_markdown": str(markdown_path),
         },

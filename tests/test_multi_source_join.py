@@ -31,8 +31,8 @@ def test_multi_source_materialize_join(tmp_path: Path) -> None:
 
     joined = pd.read_parquet(trial_output_dir / "context_joined.parquet")
 
-    assert summary["context_rows"] == 16
-    assert summary["context_available_rows"] == 15
+    assert summary["context_rows"] == 17
+    assert summary["context_available_rows"] == 16
     assert summary["unresolved_trial_rows"] == 0
 
     sources = set(joined["source"].dropna().unique().tolist())
@@ -45,6 +45,7 @@ def test_multi_source_materialize_join(tmp_path: Path) -> None:
         "wb_poverty",
         "wb_hnp",
         "wb_uhc",
+        "wb_gdp",
         "who_gho",
         "who_ghed",
     }.issubset(sources)
@@ -53,6 +54,7 @@ def test_multi_source_materialize_join(tmp_path: Path) -> None:
     assert "Population, total" in measures
     assert "Life expectancy at birth (years)" in measures
     assert "Current health expenditure (% of GDP)" in measures
+    assert "GDP per capita (current US$)" in measures
 
     gbr_life_expectancy = joined[
         (joined["iso3_resolved"] == "GBR")

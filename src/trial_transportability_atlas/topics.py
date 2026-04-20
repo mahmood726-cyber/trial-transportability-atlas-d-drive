@@ -54,6 +54,8 @@ class TopicSpec:
     """Deterministic AACT selection rules for the phase-1 topic."""
 
     slug: str
+    intervention_label: str
+    condition_label: str
     intervention_terms: tuple[str, ...]
     intervention_exclude_terms: tuple[str, ...]
     condition_terms: tuple[str, ...]
@@ -64,6 +66,8 @@ class TopicSpec:
 
 PHASE1_TOPIC = TopicSpec(
     slug="sacubitril_valsartan_hfref",
+    intervention_label="sacubitril/valsartan",
+    condition_label="heart failure with reduced ejection fraction",
     intervention_terms=(
         "sacubitril valsartan",
         "entresto",
@@ -112,6 +116,8 @@ PHASE1_TOPIC = TopicSpec(
 
 SGLT2_TOPIC = TopicSpec(
     slug="sglt2_inhibitors",
+    intervention_label="SGLT2 inhibitors",
+    condition_label="heart failure / chronic kidney disease / type 2 diabetes",
     intervention_terms=(
         "dapagliflozin",
         "empagliflozin",
@@ -152,6 +158,74 @@ SGLT2_TOPIC = TopicSpec(
         "type 1 diabetes",
     ),
 )
+
+
+GLP1_TOPIC = TopicSpec(
+    slug="glp1_agonists",
+    intervention_label="GLP-1 receptor agonists",
+    condition_label="diabetes / obesity / MACE",
+    intervention_terms=(
+        "semaglutide",
+        "liraglutide",
+        "dulaglutide",
+        "exenatide",
+        "tirzepatide",
+        "lixisenatide",
+        "ozempic",
+        "wegovy",
+        "victoza",
+        "saxenda",
+        "trulicity",
+        "byetta",
+        "bydureon",
+        "mounjaro",
+        "zepbound",
+    ),
+    intervention_exclude_terms=(
+        "matching placebo",
+        "placebo",
+    ),
+    condition_terms=(
+        "type 2 diabetes",
+        "obesity",
+        "overweight",
+        "cardiovascular disease",
+        "heart failure",
+        "mace",
+        "major adverse cardiovascular events",
+    ),
+    condition_exclude_terms=(
+        "type 1 diabetes",
+        "cancer",
+        "hiv",
+    ),
+    summary_include_terms=(
+        "glp 1",
+        "glucagon like peptide",
+        "weight loss",
+        "cardiovascular outcomes",
+    ),
+    summary_exclude_terms=(
+        "type 1 diabetes",
+    ),
+)
+
+
+TOPIC_SPECS = (
+    PHASE1_TOPIC,
+    SGLT2_TOPIC,
+    GLP1_TOPIC,
+)
+
+
+def resolve_topic_spec(slug: str) -> TopicSpec:
+    """Resolve one known topic spec by slug."""
+
+    normalized = (slug or "").strip()
+    for topic in TOPIC_SPECS:
+        if topic.slug == normalized:
+            return topic
+    raise TopicConfigError(f"Unknown topic slug: {slug}")
 
 
 def normalize_text(value: str | None) -> str:

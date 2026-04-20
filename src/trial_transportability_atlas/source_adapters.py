@@ -128,6 +128,12 @@ def _with_default(series: pd.Series, default: str) -> pd.Series:
     return series.where(series.notna(), default)
 
 
+def _optional_float_series(frame: pd.DataFrame, column_name: str | None) -> pd.Series:
+    if column_name is None:
+        return pd.Series([float("nan")] * len(frame), dtype="float64")
+    return pd.to_numeric(frame[column_name], errors="coerce").astype("float64")
+
+
 def _drop_invalid_rows(
     frame: pd.DataFrame,
     *,
@@ -254,9 +260,9 @@ def _normalize_wb_harmonized_frame(
         }
     )
     if lower_col is not None:
-        normalized["lower"] = pd.to_numeric(frame[lower_col], errors="coerce")
+        normalized["lower"] = _optional_float_series(frame, lower_col)
     if upper_col is not None:
-        normalized["upper"] = pd.to_numeric(frame[upper_col], errors="coerce")
+        normalized["upper"] = _optional_float_series(frame, upper_col)
     return _drop_invalid_rows(
         normalized,
         source_name=source_name,

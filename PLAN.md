@@ -46,11 +46,13 @@ Strict exclusion:
   - deterministic ISO3 resolution implemented in `country_iso3.py`
   - country-year context join materialization implemented in `context_join.py`
   - transportability scoring and evidence-gap materialization implemented in `transportability.py`
-  - topic, bridge, effect-candidate, context, and transportability tests are green
+  - static dashboard generation implemented in `dashboard.py` and `generate_dashboard.py`
+  - topic, bridge, effect-candidate, context, transportability, and dashboard tests are green
 
 ## Latest verification
 
-- `python -m pytest -q` -> `35 passed in 77.75s` on the D-drive repo on 2026-04-20
+- `python -m pytest -q tests\test_dashboard.py tests\test_ui.py` -> `3 passed in 1.38s`
+- `python -m pytest -q` -> `40 passed in 32.53s` on the D-drive repo on 2026-04-20
 - real filtered bridge outputs materialized to:
   - `outputs/sacubitril_valsartan_hfref/trial_country_year.parquet`
   - `outputs/sacubitril_valsartan_hfref/trial_outcomes_long.parquet`
@@ -62,6 +64,7 @@ Strict exclusion:
   - `outputs/sacubitril_valsartan_hfref/evidence_gap_summary.parquet`
   - `outputs/sacubitril_valsartan_hfref/evidence_gap_summary.md`
   - `outputs/sacubitril_valsartan_hfref/transportability_manifest.json`
+  - `dashboard/transportability_dashboard.html`
 
 ## Latest effect-candidate state
 
@@ -85,13 +88,14 @@ Note:
 
 ## Latest context-join state
 
-- `4,666` context-joined rows written from the D-drive `trial_country_year` output
-- `4,664` joined rows have source-backed multi-source context
+- `4,858` context-joined rows written from the current D-drive `trial_country_year` output
+- `4,856` joined rows have source-backed multi-source context
 - `0` rows failed ISO3 resolution on the trial side
 - distinct sources in the joined surface:
   - `ihme_burden`
   - `ihme_population`
   - `ihme_sdi`
+  - `wb_gdp`
   - `wb_governance`
   - `wb_hnp`
   - `wb_population`
@@ -107,6 +111,7 @@ Note:
   - `DALYs (Disability-Adjusted Life Years)`
   - `Deaths`
   - `Domestic general government health expenditure (% of current health expenditure)`
+  - `GDP per capita (current US$)`
   - `Gini index`
   - `Government Effectiveness: Estimate`
   - `Increase in poverty gap at $1.90 ($ 2011 PPP) poverty line due to out-of-pocket health care expenditure (% of poverty line)`
@@ -166,7 +171,27 @@ Interpretation rule:
 
 - where source-backed context is absent for a trial country-year, the score stays at `0.0`; the pipeline does not impute forward or backfill context values
 
+## Latest dashboard state
+
+- `dashboard/transportability_dashboard.html` is now generated from:
+  - `run_manifest.json`
+  - `context_join_manifest.json`
+  - `transportability_manifest.json`
+  - `transportability_country_year.parquet`
+  - `evidence_gap_summary.parquet`
+- the dashboard shows:
+  - AACT snapshot identifier
+  - materialized-output update timestamp from the live manifests
+  - context source badges and core-signal badges
+  - top latest-year gaps and strongest current support tables
+  - explicit fail-closed notice text
+- browser smoke on `http://127.0.0.1:8000/dashboard/transportability_dashboard.html` is clean:
+  - `0` console errors after adding an inline favicon
+  - curated title now renders as `Sacubitril/Valsartan in HFrEF`
+- it no longer uses the stale synthetic regional PEY surface
+  or hardcoded `D:` paths inside the reporting logic
+
 ## Next bounded step
 
-- wire the static dashboard/report layer to `transportability_country_year.parquet` and `evidence_gap_summary.*`
-- keep the phase-1 topic and source surface frozen while the reporting layer is built
+- add a lightweight publish-ready wrapper around `dashboard/transportability_dashboard.html`
+- keep the phase-1 topic and source surface frozen while the reporting layer is reviewed for Pages-ready publishing

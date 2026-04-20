@@ -5,9 +5,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from trial_transportability_atlas.contracts import SYNTHESIS_OUTPUT_CONTRACT
+from trial_transportability_atlas.topics import PHASE1_TOPIC
 from trial_transportability_atlas.transportability import (
     CORE_SIGNAL_SPECS,
     build_country_year_context_signals,
+    build_synthesis_output,
     build_country_year_transportability,
     build_evidence_gap_summary,
     materialize_transportability_outputs,
@@ -135,6 +138,28 @@ def test_build_evidence_gap_summary_aggregates_latest_rows() -> None:
     assert "daly_rate" in summary.loc[summary["iso3"] == "USA", "missing_core_signals_union"].iloc[0]
 
 
+def test_build_synthesis_output_adds_contract_columns_fail_closed() -> None:
+    transportability = build_country_year_transportability(
+        trial_country_year=build_trial_country_year_fixture(),
+        effect_candidates=build_effect_candidates_fixture(),
+        context_joined=build_context_join_fixture(),
+    )
+
+    synthesis_output = build_synthesis_output(
+        transportability,
+        topic=PHASE1_TOPIC,
+        source_manifest_id="manifest-123",
+    )
+
+    SYNTHESIS_OUTPUT_CONTRACT.validate_columns(synthesis_output.columns)
+    assert set(synthesis_output["intervention_name"]) == {"sacubitril/valsartan"}
+    assert set(synthesis_output["condition_name"]) == {"heart failure with reduced ejection fraction"}
+    assert synthesis_output["effect_measure"].isna().all()
+    assert synthesis_output["effect_value"].isna().all()
+    assert synthesis_output["effect_precision"].isna().all()
+    assert set(synthesis_output["source_manifest_id"]) == {"manifest-123"}
+
+
 def test_materialize_transportability_outputs_writes_files(tmp_path: Path) -> None:
     output_dir = tmp_path / "outputs"
     output_dir.mkdir(parents=True)
@@ -143,9 +168,15 @@ def test_materialize_transportability_outputs_writes_files(tmp_path: Path) -> No
     build_context_join_fixture().to_parquet(output_dir / "context_joined.parquet", index=False)
 
     manifest = materialize_transportability_outputs(output_dir)
+    synthesis_output = pd.read_parquet(output_dir / "synthesis_output.parquet")
 
     assert manifest["country_year_rows"] == 2
     assert manifest["summary_rows"] == 2
+    assert manifest["topic_slug"] == "sacubitril_valsartan_hfref"
+    assert "source_manifest_id" in manifest
     assert (output_dir / "transportability_country_year.parquet").exists()
+    assert (output_dir / "synthesis_output.parquet").exists()
     assert (output_dir / "evidence_gap_summary.parquet").exists()
     assert (output_dir / "evidence_gap_summary.md").exists()
+    SYNTHESIS_OUTPUT_CONTRACT.validate_columns(synthesis_output.columns)
+    assert synthesis_output["source_manifest_id"].nunique() == 1

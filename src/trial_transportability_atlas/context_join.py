@@ -26,54 +26,19 @@ def build_context_joined(
     trial_country_year: pd.DataFrame,
     context_long: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Join trial country-year rows to long-form context rows with carry-forward matching."""
+    """Join trial country-year rows to exact-year long-form context rows."""
 
     left = enrich_trial_country_year_iso3(trial_country_year)
     right = context_long.rename(columns={"iso3": "context_iso3"}).dropna(subset=["year"])
-    
-    # 1. Exact Match Join
-    exact_joined = left.merge(
+
+    joined = left.merge(
         right,
         how="left",
         left_on=["iso3_resolved", "year"],
         right_on=["context_iso3", "year"],
     )
-    
-    # 2. Gap-Filling for missing context (Carry-Forward)
-    # Find trial rows that have NO context available for their specific year
-    # We group by trial primary key and check if any measure exists
-    trial_keys = ["nct_id", "country_name", "year", "iso3_resolved"]
-    
-    # For rows where exact join failed to find context, we look for the nearest year in context_long
-    unmatched_mask = exact_joined["value"].isna()
-    if unmatched_mask.any():
-        # This is a simplified nearest-year logic: 
-        # For each (iso3, measure) in context, find the row with the year closest to the trial year
-        # For phase-1, we'll just broaden the join to "any year" and then pick the closest
-        # but to keep it deterministic and fast, let's just use the latest year available per country/measure
-        latest_context = right.sort_values("year").groupby(["context_iso3", "measure"]).last().reset_index()
-        latest_context["is_carried_forward"] = True
-        
-        # Merge trial rows that are still empty with the latest context
-        # We only do this for measures that are missing
-        # Actually, the most robust way is a full asof join, but that requires sorting.
-        # For now, let's just use the latest available context as a fallback.
-        gap_fill = left.merge(
-            latest_context,
-            how="left",
-            left_on="iso3_resolved",
-            right_on="context_iso3"
-        )
-        gap_fill["context_available_flag"] = gap_fill["value"].notna()
-        
-        # Combine
-        combined = pd.concat([exact_joined[exact_joined["value"].notna()], gap_fill], ignore_index=True)
-    else:
-        combined = exact_joined
-        combined["is_carried_forward"] = False
+    joined["context_available_flag"] = joined["value"].notna()
 
-    combined["context_available_flag"] = combined["value"].notna()
-    
     sort_columns = [
         "nct_id",
         "country_name",
@@ -84,7 +49,7 @@ def build_context_joined(
         "sex",
         "age_group",
     ]
-    return combined.drop_duplicates(subset=["nct_id", "country_name", "measure", "sex", "age_group"]).sort_values(sort_columns, kind="stable", na_position="last").reset_index(drop=True)
+    return joined.sort_values(sort_columns, kind="stable", na_position="last").reset_index(drop=True)
 
 
 def materialize_context_join(

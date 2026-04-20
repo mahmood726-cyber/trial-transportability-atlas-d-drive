@@ -5,6 +5,8 @@ PROGRESS.md
 __pycache__/
 *.pyc
 .venv/
+.playwright-cli/
+output/
 outputs/
 dist/
 build/
