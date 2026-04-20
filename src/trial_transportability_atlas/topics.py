@@ -110,6 +110,50 @@ PHASE1_TOPIC = TopicSpec(
 )
 
 
+SGLT2_TOPIC = TopicSpec(
+    slug="sglt2_inhibitors",
+    intervention_terms=(
+        "dapagliflozin",
+        "empagliflozin",
+        "canagliflozin",
+        "ertugliflozin",
+        "sotagliflozin",
+        "farxiga",
+        "jardiance",
+        "invokana",
+        "steglatro",
+        "inpefa",
+    ),
+    intervention_exclude_terms=(
+        "matching placebo",
+        "placebo",
+    ),
+    condition_terms=(
+        "heart failure",
+        "chronic kidney disease",
+        "type 2 diabetes",
+        "diabetic nephropathy",
+        "renal insufficiency",
+        "hfref",
+        "hfpef",
+    ),
+    condition_exclude_terms=(
+        "type 1 diabetes",
+        "cancer",
+        "hiv",
+    ),
+    summary_include_terms=(
+        "sglt2",
+        "sodium glucose",
+        "cardiovascular death",
+        "heart failure hospitalization",
+    ),
+    summary_exclude_terms=(
+        "type 1 diabetes",
+    ),
+)
+
+
 def normalize_text(value: str | None) -> str:
     """Normalize free text for strict exact-term matching."""
 

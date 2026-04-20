@@ -11,17 +11,18 @@ from trial_transportability_atlas.aact_bridge import (
     extract_trial_outcomes,
 )
 from trial_transportability_atlas.effect_candidates import build_effect_candidates
-from trial_transportability_atlas.topics import PHASE1_TOPIC, select_topic_nct_ids
+from trial_transportability_atlas.topics import PHASE1_TOPIC, TopicSpec, select_topic_nct_ids
 
 
 def materialize_topic_bridge(
     snapshot_dir: Path,
     output_dir: Path,
+    topic: TopicSpec = PHASE1_TOPIC,
 ) -> dict[str, object]:
-    """Write filtered bridge outputs for the frozen phase-1 topic."""
+    """Write filtered bridge outputs for a specific topic."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    nct_ids = sorted(select_topic_nct_ids(snapshot_dir, PHASE1_TOPIC))
+    nct_ids = sorted(select_topic_nct_ids(snapshot_dir, topic))
     trial_country_year = extract_trial_country_year(snapshot_dir, nct_ids=nct_ids)
     trial_outcomes = extract_trial_outcomes(snapshot_dir, nct_ids=nct_ids)
     outcomes_df = pd.DataFrame(trial_outcomes)
@@ -35,7 +36,7 @@ def materialize_topic_bridge(
     effect_candidates_df.to_parquet(effect_candidates_path, index=False)
 
     summary = {
-        "topic_slug": PHASE1_TOPIC.slug,
+        "topic_slug": topic.slug,
         "snapshot_dir": str(snapshot_dir),
         "selected_nct_ids": nct_ids,
         "trial_country_year_rows": len(trial_country_year),

@@ -23,15 +23,24 @@ from .topics import (
     normalize_text,
     select_topic_nct_ids,
 )
+from .transportability import (
+    CORE_SIGNAL_SPECS,
+    build_country_year_transportability,
+    build_evidence_gap_summary,
+    materialize_transportability_outputs,
+)
 
 __all__ = [
     "ALL_DATASET_CONTRACTS",
     "ATLAS_CONTEXT_CONTRACT",
+    "CORE_SIGNAL_SPECS",
     "FrozenTopic",
     "PHASE1_TOPIC",
     "SYNTHESIS_OUTPUT_CONTRACT",
     "TRIAL_BRIDGE_CONTRACT",
     "build_context_joined",
+    "build_country_year_transportability",
+    "build_evidence_gap_summary",
     "country_name_to_iso3",
     "discover_aact_snapshot",
     "discover_external_paths",
@@ -43,6 +52,7 @@ __all__ = [
     "load_wb_context",
     "load_who_context",
     "materialize_context_join",
+    "materialize_transportability_outputs",
     "normalize_text",
     "select_topic_nct_ids",
     "validate_aact_snapshot",

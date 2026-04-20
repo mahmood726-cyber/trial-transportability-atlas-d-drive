@@ -1,69 +1,135 @@
-import pandas as pd
+from __future__ import annotations
+
 from pathlib import Path
 
-def generate_regional_comparison():
-    context_path = Path("D:/Projects/trial-transportability-atlas/outputs/sacubitril_valsartan_hfref/context_joined.parquet")
-    df = pd.read_parquet(context_path)
-    
-    # 1. Define Regional Mapping (using ISO3 codes present in the atlas)
-    # This is a subset for the demonstration of the regional divide
-    regions = {
-        "North America": ["USA", "CAN"],
-        "South America": ["BRA", "ARG", "CHL", "COL", "PER"],
-        "Asia": ["CHN", "IND", "JPN", "KOR", "THA", "VNM"],
-        "Africa": ["ZAF", "EGY", "NGA", "KEN", "ETH"]
+import pandas as pd
+
+
+REPO_ROOT = Path(__file__).resolve().parent
+DEFAULT_TOPIC_OUTPUT_DIR = REPO_ROOT / "outputs" / "sacubitril_valsartan_hfref"
+
+REGION_MEMBERS = {
+    "North America": {"USA", "CAN"},
+    "South America": {"BRA", "ARG", "CHL", "COL", "PER"},
+    "Asia": {"CHN", "IND", "JPN", "KOR", "THA", "VNM"},
+    "Africa": {"ZAF", "EGY", "NGA", "KEN", "ETH"},
+}
+
+REPORT_MEASURE_ALIASES = (
+    ("Life Exp (Years)", ("Life expectancy at birth (years)", "life_expectancy")),
+    ("Health Exp (% GDP)", ("Current health expenditure (% of GDP)", "che_gdp")),
+    ("Health Exp pc (USD)", ("Current health expenditure per capita (USD)", "che_pc_usd")),
+    ("Physicians (per 1,000)", ("Physicians (per 1,000 people)", "physician_density")),
+    ("Gov Effectiveness", ("Government Effectiveness: Estimate",)),
+    ("Gini", ("Gini index",)),
+    (
+        "OOP Poverty Gap",
+        ("Increase in poverty gap due to out-of-pocket health care expenditure",),
+    ),
+    ("Avg Pop (M)", ("Population, total", "population")),
+)
+
+
+def _iso_to_region() -> dict[str, str]:
+    return {
+        iso3: region
+        for region, members in REGION_MEMBERS.items()
+        for iso3 in members
     }
-    
-    # Invert mapping for easier lookup
-    iso_to_region = {iso: region for region, isos in regions.items() for iso in isos}
-    
-    df["atlas_region"] = df["iso3_resolved"].map(iso_to_region)
-    
-    # Filter to our focus regions and broader years to catch sparse Africa data (2010-2025)
-    focus = df[df["atlas_region"].notna() & (df["year"] >= 2010)].copy()
-    
-    # 2. Pivot to get measures as columns
-    # We take the mean for each country-year then average by region
-    pivot = focus.groupby(["atlas_region", "country_name", "year", "measure"], dropna=False)["value"].mean().reset_index()
+
+
+def _select_report_columns(regional_avg: pd.DataFrame) -> pd.DataFrame:
+    selected: dict[str, pd.Series] = {}
+    for label, aliases in REPORT_MEASURE_ALIASES:
+        match = next((alias for alias in aliases if alias in regional_avg.columns), None)
+        if match is not None:
+            selected[label] = regional_avg[match]
+
+    if not selected:
+        return pd.DataFrame(index=regional_avg.index)
+
+    report = pd.DataFrame(selected)
+    if "Avg Pop (M)" in report.columns:
+        report["Avg Pop (M)"] = report["Avg Pop (M)"] / 1e6
+    return report
+
+
+def _render_report_markdown(final_report: pd.DataFrame, coverage: pd.DataFrame) -> str:
+    lines = [
+        "# Deep Regional Comparison: Trial Transportability Context",
+        "",
+        "This report summarizes the available context surface for trial countries grouped into broad atlas regions.",
+        "",
+    ]
+
+    if final_report.empty:
+        lines.extend(
+            [
+                "No configured report measures were available in the context surface.",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                final_report.round(2).to_markdown(),
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## Coverage",
+            "",
+            coverage.to_markdown(index=False),
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def generate_regional_comparison(
+    context_path: Path | None = None,
+    report_path: Path | None = None,
+) -> pd.DataFrame:
+    resolved_output_dir = DEFAULT_TOPIC_OUTPUT_DIR
+    resolved_context_path = context_path or (resolved_output_dir / "context_joined.parquet")
+    resolved_report_path = report_path or (resolved_output_dir / "regional_comparison_report.md")
+    if not resolved_context_path.exists():
+        raise FileNotFoundError(f"Missing context join parquet: {resolved_context_path}")
+
+    df = pd.read_parquet(resolved_context_path)
+    df["atlas_region"] = df["iso3_resolved"].map(_iso_to_region())
+    focus = df.loc[df["atlas_region"].notna()].copy()
+    if focus.empty:
+        raise ValueError("No atlas-region rows available in the context surface")
+
+    pivot = (
+        focus.groupby(["atlas_region", "country_name", "year", "measure"], dropna=False)["value"]
+        .mean()
+        .reset_index()
+    )
     regional_avg = pivot.groupby(["atlas_region", "measure"])["value"].mean().unstack()
-    
-    # Clean up column names for report (only use what exists)
-    report_cols = {
-        "life_expectancy": "Life Exp (Years)",
-        "gdp_per_capita": "GDP pc (USD)",
-        "basic_water_access": "Water Access (%)",
-        "che_gdp": "Health Exp (% GDP)",
-        "physician_density": "Physicians (per 10k)",
-        "uhc_service_coverage": "UHC Index",
-        "population": "Avg Pop (M)"
-    }
-    
-    available_cols = [c for c in report_cols.keys() if c in regional_avg.columns]
-    final_report = regional_avg[available_cols].rename(columns=report_cols)
-    
-    if "Avg Pop (M)" in final_report.columns:
-        final_report["Avg Pop (M)"] = final_report["Avg Pop (M)"] / 1e6 # Convert to millions
-    
-    print("# Deep Regional Comparison: Trial Transportability Context (2010-2025)")
-    print(final_report.round(2).to_markdown())
-    
-    with open("D:/Projects/trial-transportability-atlas/outputs/sacubitril_valsartan_hfref/regional_comparison_report.md", "w") as f:
-        f.write("# Deep Regional Comparison: Trial Transportability Context (2010-2025)\n\n")
-        f.write("This report synthesizes IHME, WHO, and World Bank data for countries participating in Sacubitril/Valsartan trials.\n\n")
-        f.write(final_report.round(2).to_markdown() + "\n\n")
-        f.write("## Data Coverage Warning\n")
-        f.write("- **Africa**: Data coverage for the African trial sites (ZAF, EGY) is currently limited to IHME snapshots. WHO/WB indicators like Physician Density for these specific site-years are pending.\n\n")
-        f.write("## Key Disparities (Based on Available Data)\n")
-        
-        # New Clinical Readiness Insights
-        if "North America" in final_report.index and "South America" in final_report.index:
-            if "Physicians (per 10k)" in final_report.columns:
-                f.write(f"- **Clinical Workforce**: North America has ~{final_report.loc['North America', 'Physicians (per 10k)'].round(1)} physicians per 10k, compared to {final_report.loc['South America', 'Physicians (per 10k)'].round(1)} in South American trial sites.\n")
-            if "UHC Index" in final_report.columns:
-                f.write(f"- **UHC Coverage**: The UHC Service Coverage index for Asian trial sites (~{final_report.loc['Asia', 'UHC Index'].round(1)}) shows significant maturity, rivaling South America.\n")
-        
-        if "North America" in final_report.index and "South America" in final_report.index:
-            f.write(f"- **The Americas Gap**: North America's GDP per capita in the trial cohort is ~${(final_report.loc['North America', 'GDP pc (USD)'] - final_report.loc['South America', 'GDP pc (USD)']).round(0)} higher than South American sites.\n")
+    final_report = _select_report_columns(regional_avg)
+
+    coverage = (
+        focus.groupby("atlas_region", dropna=False)
+        .agg(
+            countries=("iso3_resolved", "nunique"),
+            years=("year", "nunique"),
+            measures=("measure", "nunique"),
+            rows=("value", "count"),
+        )
+        .reset_index()
+        .sort_values("atlas_region", kind="stable")
+    )
+
+    markdown = _render_report_markdown(final_report, coverage)
+    resolved_report_path.write_text(markdown, encoding="utf-8")
+
+    print(markdown)
+    return final_report
+
 
 if __name__ == "__main__":
     generate_regional_comparison()
