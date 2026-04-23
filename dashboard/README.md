@@ -11,7 +11,18 @@ Requirements for the first shipped dashboard:
 
 Current generator:
 
-- `python generate_dashboard.py --output-dir outputs/sacubitril_valsartan_hfref --dashboard-path dashboard/transportability_dashboard.html`
+- `python generate_dashboard.py`
+
+Publish wrapper outputs:
+
+- `dashboard/transportability_dashboard.html`
+- `dashboard/index.html`
+
+Topic pages:
+
+- `dashboard/transportability_sacubitril_valsartan_hfref.html`
+- `dashboard/transportability_sglt2_inhibitors.html`
+- `dashboard/transportability_glp1_agonists.html`
 
 Current UI smoke:
 

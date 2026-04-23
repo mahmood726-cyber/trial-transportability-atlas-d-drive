@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
-  <title>Trial Transportability Atlas Dashboard</title>
+  <title>Trial Transportability Atlas</title>
   <style>
     :root {
       --ink: #1e2430;
@@ -50,18 +50,18 @@
     }
     h1 {
       margin: 0;
-      font-size: clamp(2.3rem, 4vw, 4.2rem);
+      font-size: clamp(2.4rem, 4vw, 4.4rem);
       line-height: 0.96;
       letter-spacing: -0.03em;
     }
     .lede {
-      max-width: 70ch;
+      max-width: 72ch;
       margin: 18px 0 0;
       color: var(--muted);
       font-size: 1.02rem;
     }
     .meta-grid,
-    .metrics-grid,
+    .topic-grid,
     .panel-grid {
       display: grid;
       gap: 16px;
@@ -70,33 +70,27 @@
       margin-top: 24px;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
-    .metrics-grid {
-      margin-top: 26px;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    }
     .panel-grid {
       margin-top: 22px;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
+    .topic-grid {
+      margin-top: 26px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
     .meta-card,
-    .metric-card,
-    .panel {
+    .panel,
+    .topic-card {
       border: 1px solid var(--border);
       border-radius: 22px;
       background: var(--panel);
       box-shadow: 0 14px 30px rgba(45, 34, 20, 0.05);
-    }
-    .meta-card,
-    .panel {
       padding: 20px;
     }
-    .metric-card {
-      padding: 18px 18px 16px;
-      background: linear-gradient(180deg, rgba(255, 251, 244, 0.95), rgba(247, 240, 228, 0.95));
-    }
     .meta-label,
-    .metric-label,
-    .panel-label {
+    .panel-label,
+    .topic-eyebrow,
+    .topic-metric-label {
       color: var(--muted);
       font-size: 0.84rem;
       letter-spacing: 0.08em;
@@ -107,25 +101,9 @@
       font-size: 1rem;
       word-break: break-word;
     }
-    .metric-value {
-      margin-top: 10px;
-      font-size: 2rem;
-      line-height: 1;
-      color: var(--accent-deep);
-    }
-    .metric-detail {
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
     .section-title {
       margin: 34px 0 12px;
       font-size: 1.45rem;
-      letter-spacing: -0.02em;
-    }
-    .panel-title {
-      margin: 0 0 8px;
-      font-size: 1.18rem;
       letter-spacing: -0.02em;
     }
     .notice {
@@ -142,6 +120,9 @@
       gap: 10px;
       margin-top: 14px;
     }
+    .chip-row-tight {
+      margin-top: 10px;
+    }
     .chip {
       display: inline-flex;
       align-items: center;
@@ -157,26 +138,45 @@
       color: var(--olive);
       border-color: rgba(84, 99, 63, 0.18);
     }
-    .table-wrap {
-      overflow-x: auto;
-      margin-top: 14px;
+    .topic-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.95rem;
+    .topic-head h2 {
+      margin: 0;
+      font-size: 1.55rem;
+      letter-spacing: -0.03em;
     }
-    th,
-    td {
-      padding: 11px 10px;
-      border-bottom: 1px solid #e8dece;
-      text-align: left;
-      vertical-align: top;
+    .topic-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: white;
+      background: var(--accent-deep);
+      text-decoration: none;
+      white-space: nowrap;
     }
-    th {
-      font-size: 0.82rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    .topic-link:hover {
+      background: var(--accent);
+    }
+    .topic-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .topic-metrics strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.45rem;
+      color: var(--accent-deep);
+    }
+    .topic-summary {
+      margin: 14px 0 0;
       color: var(--muted);
     }
     .footer-note {
@@ -189,115 +189,130 @@
       .hero,
       .meta-card,
       .panel,
-      .metric-card { border-radius: 18px; }
+      .topic-card { border-radius: 18px; }
       h1 { font-size: 2.2rem; }
+      .topic-head {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
   <main>
     <section class="hero">
-      <p class="eyebrow">Phase-1 Topic Dashboard</p>
-      <h1>Sacubitril/Valsartan in HFrEF</h1>
+      <p class="eyebrow">Publish-Ready Wrapper</p>
+      <h1>Trial Transportability Atlas</h1>
       <p class="lede">
-        Static reporting layer built from the materialized AACT bridge, multi-source context join,
-        and transportability scoring outputs. Missing source-backed context stays missing; the
-        dashboard does not backfill or impute country-year values.
+        Static entry page for the frozen source-backed atlas topics. This wrapper does not
+        recompute scores or expand the topic surface: it only points to the materialized
+        dashboards already built from AACT, IHME, WHO, and World Bank inputs.
       </p>
       <div class="meta-grid">
         <section class="meta-card">
-          <div class="meta-label">AACT Snapshot</div>
+          <div class="meta-label">Wrapped Topics</div>
+          <div class="meta-value">3 topic pages</div>
+        </section>
+        <section class="meta-card">
+          <div class="meta-label">AACT Snapshot Surface</div>
           <div class="meta-value">D:\AACT-storage\AACT\2026-04-12</div>
         </section>
         <section class="meta-card">
-          <div class="meta-label">Topic Slug</div>
-          <div class="meta-value">sacubitril_valsartan_hfref</div>
+          <div class="meta-label">Country-Year Rows</div>
+          <div class="meta-value">1,494 scored rows across the wrapped topics</div>
         </section>
         <section class="meta-card">
           <div class="meta-label">Outputs Last Updated</div>
-          <div class="meta-value">2026-04-20 15:28 UTC</div>
+          <div class="meta-value">2026-04-20 17:03 UTC</div>
         </section>
-        <section class="meta-card">
-          <div class="meta-label">Context Sources</div>
-          <div class="meta-value">11 sources</div>
-        </section>
-      </div>
-      <div class="metrics-grid">
-        <section class="metric-card">
-  <div class="metric-label">Selected NCT IDs</div>
-  <div class="metric-value">46</div>
-  <div class="metric-detail">80 strict comparable candidates</div>
-</section>
-<section class="metric-card">
-  <div class="metric-label">Context Rows</div>
-  <div class="metric-value">4,858</div>
-  <div class="metric-detail">4,856 with source-backed context</div>
-</section>
-<section class="metric-card">
-  <div class="metric-label">Scored Country-Years</div>
-  <div class="metric-value">176</div>
-  <div class="metric-detail">65 country summaries</div>
-</section>
-<section class="metric-card">
-  <div class="metric-label">Fail-Closed Rows</div>
-  <div class="metric-value">4</div>
-  <div class="metric-detail">96 rows without comparable evidence</div>
-</section>
       </div>
       <div class="notice">
-        <strong>Fail-closed rule:</strong> latest-year score zeroes in the current outputs include
-        Egypt 2025, Saudi Arabia 2026, Spain 2024, Tanzania 2024. These are source-coverage limits or non-comparable evidence
-        surfaces, not inferred values.
+        <strong>Fail-closed rule:</strong> this landing page reflects the current materialized outputs only.
+        Missing source-backed context and non-comparable evidence remain visible as gaps instead of being backfilled.
       </div>
     </section>
 
-    <h2 class="section-title">Source Surface</h2>
+    <h2 class="section-title">Wrapped Topic Dashboards</h2>
+    <div class="topic-grid">
+      
+      <article class="topic-card">
+        <div class="topic-head">
+          <div>
+            <p class="topic-eyebrow">Topic Dashboard</p>
+            <h2>Sacubitril/Valsartan in HFrEF</h2>
+          </div>
+          <a class="topic-link" href="transportability_sacubitril_valsartan_hfref.html">Open topic page</a>
+        </div>
+        <div class="topic-metrics">
+          <div><span class="topic-metric-label">Selected NCTs</span><strong>46</strong></div>
+          <div><span class="topic-metric-label">Comparable candidates</span><strong>80</strong></div>
+          <div><span class="topic-metric-label">Country-years</span><strong>176</strong></div>
+          <div><span class="topic-metric-label">Country summaries</span><strong>65</strong></div>
+        </div>
+        <p class="topic-summary"><strong>Highest current gap:</strong> Egypt gap 1.000 (2025)</p>
+        <p class="topic-summary"><strong>Strongest current support:</strong> Portugal score 1.000</p>
+        <div class="chip-row"><span class="chip">ihme_burden</span><span class="chip">ihme_population</span><span class="chip">ihme_sdi</span><span class="chip">wb_gdp</span><span class="chip">wb_governance</span><span class="chip">wb_hnp</span><span class="chip">wb_population</span><span class="chip">wb_poverty</span><span class="chip">wb_uhc</span><span class="chip">who_ghed</span><span class="chip">who_gho</span></div>
+        <div class="chip-row chip-row-tight"><span class="chip chip-muted">daly_rate</span><span class="chip chip-muted">death_rate</span><span class="chip chip-muted">population</span><span class="chip chip-muted">sdi</span><span class="chip chip-muted">suicide_rate</span><span class="chip chip-muted">alcohol_per_capita</span><span class="chip chip-muted">health_expenditure_gdp</span><span class="chip chip-muted">out_of_pocket_share</span><span class="chip chip-muted">governance_effectiveness</span><span class="chip chip-muted">gini_index</span><span class="chip chip-muted">physicians_per_1000</span></div>
+      </article>
+      <article class="topic-card">
+        <div class="topic-head">
+          <div>
+            <p class="topic-eyebrow">Topic Dashboard</p>
+            <h2>SGLT2 Inhibitors</h2>
+          </div>
+          <a class="topic-link" href="transportability_sglt2_inhibitors.html">Open topic page</a>
+        </div>
+        <div class="topic-metrics">
+          <div><span class="topic-metric-label">Selected NCTs</span><strong>611</strong></div>
+          <div><span class="topic-metric-label">Comparable candidates</span><strong>2,265</strong></div>
+          <div><span class="topic-metric-label">Country-years</span><strong>581</strong></div>
+          <div><span class="topic-metric-label">Country summaries</span><strong>74</strong></div>
+        </div>
+        <p class="topic-summary"><strong>Highest current gap:</strong> Argentina gap 1.000 (2025)</p>
+        <p class="topic-summary"><strong>Strongest current support:</strong> Croatia score 1.000</p>
+        <div class="chip-row"><span class="chip">ihme_burden</span><span class="chip">ihme_population</span><span class="chip">ihme_sdi</span><span class="chip">wb_gdp</span><span class="chip">wb_governance</span><span class="chip">wb_hnp</span><span class="chip">wb_population</span><span class="chip">wb_poverty</span><span class="chip">wb_uhc</span><span class="chip">who_ghed</span><span class="chip">who_gho</span></div>
+        <div class="chip-row chip-row-tight"><span class="chip chip-muted">daly_rate</span><span class="chip chip-muted">death_rate</span><span class="chip chip-muted">population</span><span class="chip chip-muted">sdi</span><span class="chip chip-muted">suicide_rate</span><span class="chip chip-muted">alcohol_per_capita</span><span class="chip chip-muted">health_expenditure_gdp</span><span class="chip chip-muted">out_of_pocket_share</span><span class="chip chip-muted">governance_effectiveness</span><span class="chip chip-muted">gini_index</span><span class="chip chip-muted">physicians_per_1000</span></div>
+      </article>
+      <article class="topic-card">
+        <div class="topic-head">
+          <div>
+            <p class="topic-eyebrow">Topic Dashboard</p>
+            <h2>GLP-1 Agonists</h2>
+          </div>
+          <a class="topic-link" href="transportability_glp1_agonists.html">Open topic page</a>
+        </div>
+        <div class="topic-metrics">
+          <div><span class="topic-metric-label">Selected NCTs</span><strong>875</strong></div>
+          <div><span class="topic-metric-label">Comparable candidates</span><strong>12,052</strong></div>
+          <div><span class="topic-metric-label">Country-years</span><strong>737</strong></div>
+          <div><span class="topic-metric-label">Country summaries</span><strong>70</strong></div>
+        </div>
+        <p class="topic-summary"><strong>Highest current gap:</strong> Argentina gap 1.000 (2026)</p>
+        <p class="topic-summary"><strong>Strongest current support:</strong> Latvia score 1.000</p>
+        <div class="chip-row"><span class="chip">ihme_burden</span><span class="chip">ihme_population</span><span class="chip">ihme_sdi</span><span class="chip">wb_gdp</span><span class="chip">wb_governance</span><span class="chip">wb_hnp</span><span class="chip">wb_population</span><span class="chip">wb_poverty</span><span class="chip">wb_uhc</span><span class="chip">who_ghed</span><span class="chip">who_gho</span></div>
+        <div class="chip-row chip-row-tight"><span class="chip chip-muted">daly_rate</span><span class="chip chip-muted">death_rate</span><span class="chip chip-muted">population</span><span class="chip chip-muted">sdi</span><span class="chip chip-muted">suicide_rate</span><span class="chip chip-muted">alcohol_per_capita</span><span class="chip chip-muted">health_expenditure_gdp</span><span class="chip chip-muted">out_of_pocket_share</span><span class="chip chip-muted">governance_effectiveness</span><span class="chip chip-muted">gini_index</span><span class="chip chip-muted">physicians_per_1000</span></div>
+      </article>
+    </div>
+
+    <h2 class="section-title">Frozen Source Surface</h2>
     <div class="panel-grid">
       <section class="panel">
-        <div class="panel-label">Context Sources</div>
+        <div class="panel-label">Context Sources Across Wrapped Topics</div>
         <div class="chip-row"><span class="chip">ihme_burden</span><span class="chip">ihme_population</span><span class="chip">ihme_sdi</span><span class="chip">wb_gdp</span><span class="chip">wb_governance</span><span class="chip">wb_hnp</span><span class="chip">wb_population</span><span class="chip">wb_poverty</span><span class="chip">wb_uhc</span><span class="chip">who_ghed</span><span class="chip">who_gho</span></div>
       </section>
       <section class="panel">
-        <div class="panel-label">Core Signals</div>
-        <div class="chip-row"><span class="chip chip-muted">daly_rate</span><span class="chip chip-muted">death_rate</span><span class="chip chip-muted">population</span><span class="chip chip-muted">sdi</span><span class="chip chip-muted">suicide_rate</span><span class="chip chip-muted">alcohol_per_capita</span><span class="chip chip-muted">health_expenditure_gdp</span><span class="chip chip-muted">out_of_pocket_share</span><span class="chip chip-muted">governance_effectiveness</span><span class="chip chip-muted">gini_index</span><span class="chip chip-muted">physicians_per_1000</span></div>
+        <div class="panel-label">Core Signals Across Wrapped Topics</div>
+        <div class="chip-row"><span class="chip chip-muted">alcohol_per_capita</span><span class="chip chip-muted">daly_rate</span><span class="chip chip-muted">death_rate</span><span class="chip chip-muted">gini_index</span><span class="chip chip-muted">governance_effectiveness</span><span class="chip chip-muted">health_expenditure_gdp</span><span class="chip chip-muted">out_of_pocket_share</span><span class="chip chip-muted">physicians_per_1000</span><span class="chip chip-muted">population</span><span class="chip chip-muted">sdi</span><span class="chip chip-muted">suicide_rate</span></div>
+      </section>
+      <section class="panel">
+        <div class="panel-label">Surface Totals</div>
+        <p class="topic-summary"><strong>14,397</strong> strict comparable candidates across the wrapped topics.</p>
+        <p class="topic-summary"><strong>209</strong> country summaries available across the wrapped dashboards.</p>
       </section>
     </div>
 
-    <h2 class="section-title">Latest-Year Evidence Gaps</h2>
-    <section class="panel">
-      <h3 class="panel-title">Highest latest-year priority gaps</h3>
-      <p class="lede">
-        Countries are sorted by latest-year priority gap. Higher values mean lower transportability
-        readiness under the current source-backed context and comparable-evidence surface.
-      </p>
-      <div class="table-wrap">
-  <table>
-    <thead><tr><th>Country</th><th>ISO3</th><th>Latest year</th><th>Trials</th><th>Comparable trials</th><th>Latest score</th><th>Gap</th><th>Missing signals</th></tr></thead>
-    <tbody><tr><td><strong>Egypt</strong></td><td>EGY</td><td>2025</td><td>1</td><td>0</td><td>0.000</td><td>1.000</td><td>11</td></tr><tr><td><strong>Saudi Arabia</strong></td><td>SAU</td><td>2026</td><td>2</td><td>1</td><td>0.000</td><td>1.000</td><td>11</td></tr><tr><td><strong>Spain</strong></td><td>ESP</td><td>2024</td><td>7</td><td>3</td><td>0.000</td><td>1.000</td><td>11</td></tr><tr><td><strong>Tanzania</strong></td><td>TZA</td><td>2024</td><td>1</td><td>0</td><td>0.000</td><td>1.000</td><td>11</td></tr><tr><td><strong>Hong Kong</strong></td><td>HKG</td><td>2014</td><td>2</td><td>1</td><td>0.030</td><td>0.970</td><td>10</td></tr><tr><td><strong>Taiwan</strong></td><td>TWN</td><td>2020</td><td>3</td><td>1</td><td>0.091</td><td>0.909</td><td>8</td></tr><tr><td><strong>Puerto Rico</strong></td><td>PRI</td><td>2013</td><td>1</td><td>0</td><td>0.182</td><td>0.818</td><td>5</td></tr><tr><td><strong>Pakistan</strong></td><td>PAK</td><td>2022</td><td>1</td><td>0</td><td>0.212</td><td>0.788</td><td>4</td></tr><tr><td><strong>India</strong></td><td>IND</td><td>2021</td><td>3</td><td>1</td><td>0.273</td><td>0.727</td><td>2</td></tr><tr><td><strong>Mexico</strong></td><td>MEX</td><td>2022</td><td>4</td><td>1</td><td>0.273</td><td>0.727</td><td>3</td></tr></tbody>
-  </table>
-</div>
-    </section>
-
-    <h2 class="section-title">Strongest Current Support</h2>
-    <section class="panel">
-      <h3 class="panel-title">Highest latest transportability scores</h3>
-      <p class="lede">
-        This table ranks countries by latest transportability score, then by comparable candidate
-        support. It is descriptive only and should not be read as a causal deployment ranking.
-      </p>
-      <div class="table-wrap">
-  <table>
-    <thead><tr><th>Country</th><th>ISO3</th><th>Latest year</th><th>Latest score</th><th>Mean coverage</th><th>Mean eligibility</th><th>Comparable candidates</th></tr></thead>
-    <tbody><tr><td><strong>Portugal</strong></td><td>PRT</td><td>2016</td><td>1.000</td><td>1.000</td><td>0.667</td><td>6</td></tr><tr><td><strong>Russia</strong></td><td>RUS</td><td>2016</td><td>1.000</td><td>1.000</td><td>0.667</td><td>6</td></tr><tr><td><strong>Slovakia</strong></td><td>SVK</td><td>2016</td><td>1.000</td><td>1.000</td><td>0.500</td><td>6</td></tr><tr><td><strong>Turkey (Türkiye)</strong></td><td>TUR</td><td>2016</td><td>1.000</td><td>1.000</td><td>0.500</td><td>6</td></tr><tr><td><strong>Switzerland</strong></td><td>CHE</td><td>2016</td><td>1.000</td><td>1.000</td><td>0.500</td><td>5</td></tr><tr><td><strong>Lebanon</strong></td><td>LBN</td><td>2016</td><td>0.970</td><td>0.909</td><td>0.500</td><td>5</td></tr><tr><td><strong>Japan</strong></td><td>JPN</td><td>2015</td><td>0.871</td><td>0.909</td><td>1.000</td><td>19</td></tr><tr><td><strong>Ecuador</strong></td><td>ECU</td><td>2009</td><td>0.722</td><td>1.000</td><td>1.000</td><td>1</td></tr><tr><td><strong>Belgium</strong></td><td>BEL</td><td>2016</td><td>0.695</td><td>1.000</td><td>0.667</td><td>26</td></tr><tr><td><strong>France</strong></td><td>FRA</td><td>2016</td><td>0.695</td><td>1.000</td><td>0.500</td><td>26</td></tr></tbody>
-  </table>
-</div>
-    </section>
-
     <p class="footer-note">
-      Reporting inputs: <code>run_manifest.json</code>, <code>context_join_manifest.json</code>,
-      <code>transportability_manifest.json</code>, <code>transportability_country_year.parquet</code>,
-      and <code>evidence_gap_summary.parquet</code>.
-      Full-signal country-years: 125. Zero-signal country-years: 4.
+      Publish entry points: <code>dashboard/index.html</code> and <code>dashboard/transportability_dashboard.html</code>.
+      Topic pages stay on their dedicated <code>transportability_*.html</code> files so the current reporting surface remains frozen.
     </p>
   </main>
 </body>

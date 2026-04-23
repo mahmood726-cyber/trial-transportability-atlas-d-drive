@@ -12,7 +12,9 @@ Current phase focus:
 
 Static dashboard command:
 
-- `python generate_dashboard.py --output-dir outputs/sacubitril_valsartan_hfref --dashboard-path dashboard/transportability_dashboard.html`
+- `python generate_dashboard.py`
+- Topic pages are written to `dashboard/transportability_<topic>.html`
+- The publish wrapper is written to `dashboard/transportability_dashboard.html` and `dashboard/index.html`
 
 UI smoke commands:
 

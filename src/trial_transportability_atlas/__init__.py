@@ -9,7 +9,12 @@ from .contracts import (
     TRIAL_BRIDGE_CONTRACT,
 )
 from .country_iso3 import country_name_to_iso3
-from .dashboard import build_dashboard_html, materialize_dashboard
+from .dashboard import (
+    build_dashboard_html,
+    build_publish_wrapper_html,
+    materialize_dashboard,
+    materialize_publish_wrapper,
+)
 from .project_paths import discover_aact_snapshot, discover_external_paths
 from .source_adapters import (
     load_ihme_context,
@@ -42,6 +47,7 @@ __all__ = [
     "SYNTHESIS_OUTPUT_CONTRACT",
     "TRIAL_BRIDGE_CONTRACT",
     "build_dashboard_html",
+    "build_publish_wrapper_html",
     "build_context_joined",
     "build_country_year_transportability",
     "build_evidence_gap_summary",
@@ -57,6 +63,7 @@ __all__ = [
     "load_wb_context",
     "load_who_context",
     "materialize_dashboard",
+    "materialize_publish_wrapper",
     "materialize_context_join",
     "materialize_transportability_outputs",
     "normalize_text",

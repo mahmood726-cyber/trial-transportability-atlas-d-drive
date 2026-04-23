@@ -8,7 +8,7 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from trial_transportability_atlas.dashboard import materialize_dashboard
+from trial_transportability_atlas.dashboard import materialize_dashboard, materialize_publish_wrapper
 
 
 def generate_html_dashboards():
@@ -35,7 +35,11 @@ def generate_html_dashboards():
             dashboard_path=dashboard_path,
         )
         results.append(res)
-    return results
+    wrapper = materialize_publish_wrapper(REPO_ROOT, topic_slugs=[item["topic_slug"] for item in results])
+    return {
+        "topic_dashboards": results,
+        "publish_wrapper": wrapper,
+    }
 
 if __name__ == "__main__":
     print(json.dumps(generate_html_dashboards(), indent=2))

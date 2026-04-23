@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from trial_transportability_atlas.dashboard import build_dashboard_html
+from trial_transportability_atlas.dashboard import build_dashboard_html, build_publish_wrapper_html
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -126,3 +126,17 @@ def test_dashboard_ui_contract_uses_curated_title_and_inline_favicon(tmp_path: P
     assert "Sacubitril/Valsartan in HFrEF" in html
     assert "Sacubitril Valsartan Hfref" not in html
     assert "Fail-closed rule" in html
+
+
+def test_publish_wrapper_ui_contract_uses_inline_favicon_and_topic_links(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    output_dir = repo_root / "outputs" / "sacubitril_valsartan_hfref"
+    output_dir.mkdir(parents=True)
+    _build_ui_fixture(output_dir)
+
+    html = build_publish_wrapper_html(repo_root)
+
+    assert '<link rel="icon" href="data:,">' in html
+    assert "Publish-Ready Wrapper" in html
+    assert "transportability_sacubitril_valsartan_hfref.html" in html
+    assert "Sacubitril/Valsartan in HFrEF" in html
