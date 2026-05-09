@@ -1,26 +1,43 @@
-# sentinel:skip-file — hardcoded paths are fixture/registry/audit-narrative data for this repo's research workflow, not portable application configuration. Same pattern as push_all_repos.py and E156 workbook files.
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from trial_transportability_atlas.scoring import calculate_transportability_score
-
-def run_policy_simulations(topic_slug: str, target_region: str = "Africa"):
-    base_dir = Path(f"D:/Projects/trial-transportability-atlas/outputs/{topic_slug}")
-    scores_path = base_dir / "transportability_scores.csv"
+import pandas as pd
+from trial_transportability_atlas.project_paths import discover_topic_output_dir
+from trial_transportability_atlas.scoring import calculate_transportability_score
+
+
+def _render_table(df: pd.DataFrame) -> str:
+    try:
+        return df.to_markdown(index=False)
+    except ImportError:
+        return df.to_string(index=False)
+
+
+def _percent_lift(new_score: float, baseline_score: float) -> float | None:
+    if baseline_score == 0:
+        return None
+    return round(((new_score - baseline_score) / baseline_score) * 100, 1)
+
+
+def run_policy_simulations(topic_slug: str, target_region: str = "Africa"):
+    base_dir = discover_topic_output_dir(topic_slug)
+    scores_path = base_dir / "transportability_scores.csv"
     yield_path = base_dir / "predictive_yield.csv"
     
     if not (scores_path.exists() and yield_path.exists()):
         print(f"Required data missing for {topic_slug}")
         return
 
-    df_scores = pd.read_csv(scores_path, index_col=0)
-    df_yield = pd.read_csv(yield_path, index_col=0)
-    
-    if "North America" not in df_scores.index or target_region not in df_scores.index:
-        return
-
-    origin = df_scores.loc["North America"]
-    current_stats = df_scores.loc[target_region]
+    df_scores = pd.read_csv(scores_path, index_col=0)
+    df_yield = pd.read_csv(yield_path, index_col=0)
+
+    if "North America" not in df_scores.index or target_region not in df_scores.index:
+        return None
+    required_score_columns = {"Transportability Index", "Physicians", "GDP pc", "Health Exp (%)"}
+    if not required_score_columns.issubset(df_scores.columns):
+        return None
+    if target_region not in df_yield.index or "Local Burden (DALYs)" not in df_yield.columns:
+        return None
+
+    origin = df_scores.loc["North America"]
+    current_stats = df_scores.loc[target_region]
     current_score = current_stats["Transportability Index"]
     local_burden = df_yield.loc[target_region, "Local Burden (DALYs)"]
 
@@ -66,30 +83,44 @@ def run_policy_simulations(topic_slug: str, target_region: str = "Africa"):
         new_score = calculate_transportability_score(origin, sim)
         new_yield = new_score * (local_burden / 1000)
         
-        results.append({
-            "Policy Bundle": p["name"],
-            "Description": p["description"],
-            "Simulated Index": round(new_score, 3),
-            "Simulated Yield (PEY)": round(new_yield, 0),
-            "Index Lift (%)": round(((new_score - current_score) / current_score) * 100, 1),
-            "Viability": "VIABLE" if new_score >= 0.55 else "BOTTLENECK"
-        })
-
-    results_df = pd.DataFrame(results)
-    
-    print(f"# Regional Policy Simulation: {target_region} ({topic_slug})")
-    print(results_df[["Policy Bundle", "Simulated Index", "Simulated Yield (PEY)", "Index Lift (%)", "Viability"]].to_markdown(index=False))
-    
-    report_path = base_dir / "policy_simulation_report.md"
-    with report_path.open("w") as f:
-        f.write(f"# Policy Impact Report: {target_region} ({topic_slug})\n\n")
-        f.write(f"This simulation measures the impact of strategic policy bundles on the transportability of {topic_slug.replace('_', ' ')} evidence.\n\n")
-        f.write(results_df.to_markdown(index=False) + "\n\n")
-        f.write("## Strategic Recommendation\n")
-        top_policy = results_df.sort_values("Simulated Index", ascending=False).iloc[0]
-        f.write(f"The **{top_policy['Policy Bundle']}** is the most effective path to regional viability, providing a {top_policy['Index Lift (%)']}% lift in transportability readiness.\n")
-
-if __name__ == "__main__":
-    import sys
-    topic = sys.argv[1] if len(sys.argv) > 1 else "glp1_agonists"
-    run_policy_simulations(topic)
+        results.append({
+            "Policy Bundle": p["name"],
+            "Description": p["description"],
+            "Simulated Index": round(new_score, 3),
+            "Simulated Yield (PEY)": round(new_yield, 0),
+            "Index Lift (%)": _percent_lift(new_score, current_score),
+            "Viability": "VIABLE" if new_score >= 0.55 else "BOTTLENECK"
+        })
+
+    results_df = pd.DataFrame(results)
+    if results_df.empty:
+        return None
+
+    print(f"# Regional Policy Simulation: {target_region} ({topic_slug})")
+    print(
+        _render_table(
+            results_df[
+                ["Policy Bundle", "Simulated Index", "Simulated Yield (PEY)", "Index Lift (%)", "Viability"]
+            ]
+        )
+    )
+
+    report_path = base_dir / "policy_simulation_report.md"
+    with report_path.open("w", encoding="utf-8") as f:
+        f.write(f"# Policy Impact Report: {target_region} ({topic_slug})\n\n")
+        f.write(f"This simulation measures the impact of strategic policy bundles on the transportability of {topic_slug.replace('_', ' ')} evidence.\n\n")
+        f.write(_render_table(results_df) + "\n\n")
+        f.write("## Strategic Recommendation\n")
+        top_policy = next(
+            results_df.sort_values("Simulated Index", ascending=False).iterrows(),
+            (None, None),
+        )[1]
+        if top_policy is None:
+            return results_df
+        f.write(f"The **{top_policy['Policy Bundle']}** is the most effective path to regional viability, providing a {top_policy['Index Lift (%)']}% lift in transportability readiness.\n")
+    return results_df
+
+if __name__ == "__main__":
+    import sys
+    topic = sys.argv[1] if len(sys.argv) > 1 else "glp1_agonists"
+    run_policy_simulations(topic)

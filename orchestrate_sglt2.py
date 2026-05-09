@@ -1,8 +1,9 @@
-# sentinel:skip-file — hardcoded paths are fixture/registry/audit-narrative data for this repo's research workflow, not portable application configuration. Same pattern as push_all_repos.py and E156 workbook files.
-from pathlib import Path
-import json
-import pandas as pd
-from trial_transportability_atlas.project_paths import discover_external_paths, discover_aact_snapshot
+import pandas as pd
+from trial_transportability_atlas.project_paths import (
+    discover_aact_snapshot,
+    discover_external_paths,
+    discover_topic_output_dir,
+)
 from trial_transportability_atlas.materialize import materialize_topic_bridge
 from trial_transportability_atlas.context_join import materialize_context_join
 from trial_transportability_atlas.topics import SGLT2_TOPIC
@@ -12,7 +13,7 @@ def run_sglt2_pipeline():
     aact_snapshot = discover_aact_snapshot()
     
     topic = SGLT2_TOPIC
-    output_dir = Path(f"D:/Projects/trial-transportability-atlas/outputs/{topic.slug}")
+    output_dir = discover_topic_output_dir(topic.slug)
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"--- Step 1: Materializing Bridge for {topic.slug} ---")

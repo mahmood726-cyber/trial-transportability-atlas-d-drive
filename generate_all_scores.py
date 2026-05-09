@@ -1,10 +1,9 @@
-# sentinel:skip-file — hardcoded paths are fixture/registry/audit-narrative data for this repo's research workflow, not portable application configuration. Same pattern as push_all_repos.py and E156 workbook files.
-import pandas as pd
-from pathlib import Path
-from trial_transportability_atlas.scoring import generate_transportability_heatmap
-
-def generate_scores(topic_slug: str):
-    output_dir = Path(f"D:/Projects/trial-transportability-atlas/outputs/{topic_slug}")
+import pandas as pd
+from trial_transportability_atlas.project_paths import discover_topic_output_dir
+from trial_transportability_atlas.scoring import generate_transportability_heatmap
+
+def generate_scores(topic_slug: str):
+    output_dir = discover_topic_output_dir(topic_slug)
     context_path = output_dir / "context_joined.parquet"
     if not context_path.exists():
         return

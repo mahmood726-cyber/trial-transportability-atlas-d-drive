@@ -1,12 +1,11 @@
 """Topic-loading helpers for the frozen phase-1 atlas demo."""
 from __future__ import annotations
 
-from csv import DictReader
 from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from trial_transportability_atlas.aact_bridge import validate_aact_snapshot
+from trial_transportability_atlas.aact_bridge import iter_aact_rows, validate_aact_snapshot
 
 
 TOPICS_DIR = Path(__file__).resolve().parents[2] / "configs" / "topics"
@@ -291,10 +290,8 @@ def _extract_bullets(sections: dict[str, list[str]], header: str) -> tuple[str, 
     return tuple(values)
 
 
-def _iter_rows(snapshot_dir: Path, table_name: str):
-    table_path = snapshot_dir / f"{table_name}.txt"
-    with table_path.open("r", encoding="utf-8", newline="") as handle:
-        yield from DictReader(handle, delimiter="|")
+def _iter_rows(snapshot_dir: Path, table_name: str, *, nct_ids: set[str] | None = None):
+    yield from iter_aact_rows(snapshot_dir, table_name, nct_ids=nct_ids)
 
 
 def _contains_any(text: str, patterns: tuple[str, ...]) -> bool:
@@ -358,7 +355,7 @@ def select_topic_nct_ids(snapshot_dir: Path, topic: TopicSpec = PHASE1_TOPIC) ->
             candidate_nct_ids.add(nct_id)
 
     conditions_by_nct: dict[str, list[str]] = {}
-    for row in _iter_rows(snapshot_dir, "conditions"):
+    for row in _iter_rows(snapshot_dir, "conditions", nct_ids=candidate_nct_ids):
         nct_id = (row.get("nct_id") or "").strip()
         if nct_id not in candidate_nct_ids:
             continue
@@ -367,7 +364,7 @@ def select_topic_nct_ids(snapshot_dir: Path, topic: TopicSpec = PHASE1_TOPIC) ->
             conditions_by_nct.setdefault(nct_id, []).append(text)
 
     summaries_by_nct: dict[str, list[str]] = {}
-    for row in _iter_rows(snapshot_dir, "brief_summaries"):
+    for row in _iter_rows(snapshot_dir, "brief_summaries", nct_ids=candidate_nct_ids):
         nct_id = (row.get("nct_id") or "").strip()
         if nct_id not in candidate_nct_ids:
             continue

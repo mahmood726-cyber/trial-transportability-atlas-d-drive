@@ -4,10 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 from typing import Iterable, Mapping
 
 
 DEFAULT_CANDIDATE_ROOTS = (Path("D:/"), Path("C:/"))
+WINDOWS_DRIVE_PATH_RE = re.compile(r"^(?P<drive>[A-Za-z]):[\\/](?P<rest>.*)$")
 
 
 class MissingRequiredPathError(FileNotFoundError):
@@ -66,7 +68,23 @@ def _normalize_roots(candidate_roots: Iterable[Path] | None) -> tuple[Path, ...]
 
 
 def _existing_path(path: Path) -> Path | None:
-    return path if path.exists() else None
+    candidates = [path]
+    match = WINDOWS_DRIVE_PATH_RE.match(str(path))
+    if match:
+        drive = match.group("drive").casefold()
+        rest = match.group("rest").replace("\\", "/")
+        candidates.append(Path(f"/mnt/{drive}") / Path(rest))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def repo_root() -> Path:
+    """Return the local repository root for this atlas checkout."""
+
+    return Path(__file__).resolve().parents[2]
 
 
 def resolve_path_spec(
@@ -132,3 +150,26 @@ def discover_aact_snapshot(
         candidate_roots=candidate_roots,
         env=env,
     )
+
+
+def discover_output_root(
+    *,
+    env: Mapping[str, str] | None = None,
+) -> Path:
+    """Resolve the writable outputs root for local orchestration scripts."""
+
+    env_map = env if env is not None else os.environ
+    override = env_map.get("TTA_OUTPUT_ROOT")
+    if override:
+        return Path(override)
+    return repo_root() / "outputs"
+
+
+def discover_topic_output_dir(
+    topic_slug: str,
+    *,
+    env: Mapping[str, str] | None = None,
+) -> Path:
+    """Resolve one topic-specific output directory."""
+
+    return discover_output_root(env=env) / topic_slug

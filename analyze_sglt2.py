@@ -1,11 +1,10 @@
-# sentinel:skip-file — hardcoded paths are fixture/registry/audit-narrative data for this repo's research workflow, not portable application configuration. Same pattern as push_all_repos.py and E156 workbook files.
-from pathlib import Path
-import pandas as pd
-from trial_transportability_atlas.scoring import generate_transportability_heatmap
-
-def analyze_sglt2():
-    topic_slug = "sglt2_inhibitors"
-    output_dir = Path(f"D:/Projects/trial-transportability-atlas/outputs/{topic_slug}")
+import pandas as pd
+from trial_transportability_atlas.project_paths import discover_topic_output_dir
+from trial_transportability_atlas.scoring import generate_transportability_heatmap
+
+def analyze_sglt2():
+    topic_slug = "sglt2_inhibitors"
+    output_dir = discover_topic_output_dir(topic_slug)
     df = pd.read_parquet(output_dir / "context_joined.parquet")
     
     # ... [keep existing region mapping logic] ...

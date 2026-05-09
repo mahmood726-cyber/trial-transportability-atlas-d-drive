@@ -12,6 +12,8 @@ import pandas as pd
 from trial_transportability_atlas.contracts import SYNTHESIS_OUTPUT_CONTRACT
 from trial_transportability_atlas.context_join import enrich_trial_country_year_iso3
 from trial_transportability_atlas.topics import PHASE1_TOPIC, TopicSpec, resolve_topic_spec
+from trial_transportability_atlas.source_adapters import load_unified_context
+from trial_transportability_atlas.project_paths import discover_external_paths
 
 
 @dataclass(frozen=True)
@@ -164,9 +166,9 @@ def _build_nct_evidence_summary(effect_candidates: pd.DataFrame) -> pd.DataFrame
 
 def build_country_year_context_signals(
     trial_country_year: pd.DataFrame,
-    context_joined: pd.DataFrame,
+    context_long: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Select one curated signal value per country-year."""
+    """Select one curated signal value per country-year with LVCF support."""
 
     base = enrich_trial_country_year_iso3(trial_country_year)
     country_years = (
@@ -177,29 +179,11 @@ def build_country_year_context_signals(
         .reset_index(drop=True)
     )
 
-    context_unique = (
-        context_joined.loc[context_joined["context_available_flag"]]
-        [
-            [
-                "iso3_resolved",
-                "year",
-                "source",
-                "measure",
-                "metric",
-                "sex",
-                "age_group",
-                "value",
-            ]
-        ]
-        .drop_duplicates()
-        .reset_index(drop=True)
-    )
-
     result = country_years.copy()
     for spec in CORE_SIGNAL_SPECS:
-        candidates = context_unique.loc[
-            context_unique["source"].eq(spec.source)
-            & context_unique["measure"].eq(spec.measure)
+        candidates = context_long.loc[
+            context_long["source"].eq(spec.source)
+            & context_long["measure"].eq(spec.measure)
         ].copy()
         if candidates.empty:
             result[f"signal_{spec.key}"] = pd.NA
@@ -208,20 +192,40 @@ def build_country_year_context_signals(
         candidates["metric_rank"] = _preference_rank(candidates["metric"], spec.metric)
         candidates["sex_rank"] = _preference_rank(candidates["sex"], spec.sex)
         candidates["age_rank"] = _preference_rank(candidates["age_group"], spec.age_group)
+        
+        # Select best signal per country-year from the full context pool
+        # First, match exact years
         selected = (
             candidates.sort_values(
-                ["iso3_resolved", "year", "metric_rank", "sex_rank", "age_rank"],
+                ["iso3", "year", "metric_rank", "sex_rank", "age_rank"],
                 kind="stable",
             )
-            .drop_duplicates(["iso3_resolved", "year"], keep="first")
+            .drop_duplicates(["iso3", "year"], keep="first")
             .rename(
                 columns={
-                    "iso3_resolved": "iso3",
                     "value": f"signal_{spec.key}",
                 }
             )[["iso3", "year", f"signal_{spec.key}"]]
         )
+        
+        # Merge onto result (exact year matches)
         result = result.merge(selected, how="left", on=["iso3", "year"])
+        
+        # For missing years, we need to fill from other years in the pool
+        # We'll create a per-country 'latest available' lookup
+        latest_available = (
+            candidates.sort_values(
+                ["iso3", "year", "metric_rank", "sex_rank", "age_rank"],
+                kind="stable",
+            )
+            .drop_duplicates(["iso3"], keep="last")
+            .rename(columns={"value": f"fill_{spec.key}"})
+            [["iso3", f"fill_{spec.key}"]]
+        )
+        
+        result = result.merge(latest_available, how="left", on="iso3")
+        result[f"signal_{spec.key}"] = result[f"signal_{spec.key}"].fillna(result[f"fill_{spec.key}"])
+        result.drop(columns=[f"fill_{spec.key}"], inplace=True)
 
     return result
 
@@ -229,14 +233,14 @@ def build_country_year_context_signals(
 def build_country_year_transportability(
     trial_country_year: pd.DataFrame,
     effect_candidates: pd.DataFrame,
-    context_joined: pd.DataFrame,
+    context_long: pd.DataFrame,
 ) -> pd.DataFrame:
     """Score trial-footprint country-years for transportability readiness."""
 
     evidence_by_nct = _build_nct_evidence_summary(effect_candidates)
     country_year_signals = build_country_year_context_signals(
         trial_country_year=trial_country_year,
-        context_joined=context_joined,
+        context_long=context_long,
     )
 
     trial_rows = enrich_trial_country_year_iso3(trial_country_year)
@@ -379,7 +383,9 @@ def build_evidence_gap_summary(country_year_transportability: pd.DataFrame) -> p
         sort=True,
     ):
         ordered = group.sort_values(["year"], kind="stable")
-        latest = ordered.iloc[-1]
+        latest = next(ordered.tail(1).itertuples(index=False), None)
+        if latest is None:
+            continue
         rows.append(
             {
                 "iso3": iso3,
@@ -390,9 +396,9 @@ def build_evidence_gap_summary(country_year_transportability: pd.DataFrame) -> p
                     set().union(*(_split_joined(value) for value in group["comparable_nct_ids"]))
                 ),
                 "comparable_candidate_count": int(group["comparable_candidate_count"].sum()),
-                "latest_year": int(latest["year"]),
-                "latest_transportability_score": float(latest["transportability_score"]),
-                "latest_priority_gap_score": float(latest["priority_gap_score"]),
+                "latest_year": int(latest.year),
+                "latest_transportability_score": float(latest.transportability_score),
+                "latest_priority_gap_score": float(latest.priority_gap_score),
                 "mean_country_coverage_score": float(group["country_coverage_score"].mean()),
                 "mean_eligibility_support_score": float(group["eligibility_support_score"].mean()),
                 "mean_reporting_completeness_score": float(group["reporting_completeness_score"].mean()),
@@ -504,7 +510,15 @@ def materialize_transportability_outputs(
 
     trial_country_year = pd.read_parquet(trial_country_year_path)
     effect_candidates = pd.read_parquet(effect_candidates_path)
-    context_joined = pd.read_parquet(context_joined_path)
+    
+    # Load full context for LVCF support
+    paths = discover_external_paths()
+    context_long = load_unified_context(
+        ihme_repo_root=paths.ihme_repo,
+        wb_repo_root=paths.wb_repo,
+        who_repo_root=paths.who_repo,
+    )
+    
     resolved_topic = _resolve_transport_topic(trial_output_dir, topic)
     source_manifest_id = _hash_source_paths(
         [
@@ -519,7 +533,7 @@ def materialize_transportability_outputs(
     country_year = build_country_year_transportability(
         trial_country_year=trial_country_year,
         effect_candidates=effect_candidates,
-        context_joined=context_joined,
+        context_long=context_long,
     )
     synthesis_output = build_synthesis_output(
         country_year,

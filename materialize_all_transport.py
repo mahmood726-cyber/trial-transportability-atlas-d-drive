@@ -1,16 +1,14 @@
-# sentinel:skip-file — hardcoded paths are fixture/registry/audit-narrative data for this repo's research workflow, not portable application configuration. Same pattern as push_all_repos.py and E156 workbook files.
-from pathlib import Path
-import sys
-from trial_transportability_atlas.transportability import materialize_transportability_outputs
-from trial_transportability_atlas.topics import resolve_topic_spec
-
-def materialize_all_transport():
-    topics = ["sacubitril_valsartan_hfref", "sglt2_inhibitors", "glp1_agonists"]
-    for slug in topics:
-        output_dir = Path(f"D:/Projects/trial-transportability-atlas/outputs/{slug}")
-        if not output_dir.exists():
-            print(f"Skipping {slug}, output dir not found.")
-            continue
+from trial_transportability_atlas.project_paths import discover_topic_output_dir
+from trial_transportability_atlas.transportability import materialize_transportability_outputs
+from trial_transportability_atlas.topics import resolve_topic_spec
+
+def materialize_all_transport():
+    topics = ["sacubitril_valsartan_hfref", "sglt2_inhibitors", "glp1_agonists"]
+    for slug in topics:
+        output_dir = discover_topic_output_dir(slug)
+        if not output_dir.exists():
+            print(f"Skipping {slug}, output dir not found.")
+            continue
             
         print(f"Materializing transportability for {slug}...")
         try:

@@ -1,11 +1,10 @@
-# sentinel:skip-file — hardcoded paths are fixture/registry/audit-narrative data for this repo's research workflow, not portable application configuration. Same pattern as push_all_repos.py and E156 workbook files.
-import pandas as pd
-from pathlib import Path
-from trial_transportability_atlas.scoring import generate_transportability_heatmap
-
-def run_sensitivity_check():
-    topics = ["sacubitril_valsartan_hfref", "sglt2_inhibitors"]
-    base_dir = Path("D:/Projects/trial-transportability-atlas/outputs")
+import pandas as pd
+from trial_transportability_atlas.project_paths import discover_output_root
+from trial_transportability_atlas.scoring import generate_transportability_heatmap
+
+def run_sensitivity_check():
+    topics = ["sacubitril_valsartan_hfref", "sglt2_inhibitors"]
+    base_dir = discover_output_root()
     
     all_scores = {}
     
@@ -63,10 +62,10 @@ def run_sensitivity_check():
         print("\n## Stability Insights")
         print("- A low Score Variance indicates that a region's transportability is stable across different cardiovascular classes.")
         
-        report_path = Path("D:/Projects/trial-transportability-atlas/outputs/sensitivity_check.md")
-        with report_path.open("w") as f:
-            f.write("# Cross-Topic Transportability Sensitivity Check\n\n")
-            f.write(sensitivity_df.round(3).to_markdown() + "\n")
+        report_path = base_dir / "sensitivity_check.md"
+        with report_path.open("w", encoding="utf-8") as f:
+            f.write("# Cross-Topic Transportability Sensitivity Check\n\n")
+            f.write(sensitivity_df.round(3).to_markdown() + "\n")
 
 if __name__ == "__main__":
     run_sensitivity_check()

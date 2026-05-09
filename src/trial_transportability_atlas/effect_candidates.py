@@ -105,7 +105,7 @@ def build_effect_candidates(outcomes: pd.DataFrame) -> pd.DataFrame:
 
     records: list[dict[str, object]] = []
     for candidate_id, group in frame.groupby("candidate_id", dropna=False, sort=True):
-        first = group.iloc[0]
+        first = next(group.iterrows())[1]
         record_type = str(first["record_type"])
         if record_type == "measurement":
             family = _measurement_family(first.get("param_type"), first["unit_norm"])

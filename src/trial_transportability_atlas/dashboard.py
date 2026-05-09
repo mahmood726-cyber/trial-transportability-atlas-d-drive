@@ -541,16 +541,16 @@ def build_publish_wrapper_html(repo_root: Path, topic_slugs: list[str] | None = 
         snapshot_dirs.add(str(run_manifest.get("snapshot_dir", "")))
 
         gap_label = "No summary rows"
-        if not summary.empty:
-            gap_row = summary.iloc[0]
+        gap_row = next(summary.itertuples(index=False), None)
+        if gap_row is not None:
             gap_label = (
                 f"{gap_row.country_name} gap {_format_score(gap_row.latest_priority_gap_score)} "
                 f"({int(gap_row.latest_year)})"
             )
 
         support_label = "No comparable support"
-        if not strongest.empty:
-            support_row = strongest.iloc[0]
+        support_row = next(strongest.itertuples(index=False), None)
+        if support_row is not None:
             support_label = (
                 f"{support_row.country_name} score {_format_score(support_row.latest_transportability_score)}"
             )

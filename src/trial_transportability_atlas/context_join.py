@@ -15,7 +15,8 @@ def enrich_trial_country_year_iso3(trial_country_year: pd.DataFrame) -> pd.DataF
 
     frame = trial_country_year.copy()
     inferred = frame["country_name"].map(country_name_to_iso3)
-    frame["iso3_resolved"] = frame["iso3"].fillna(inferred)
+    resolved = frame["iso3"].where(frame["iso3"].notna(), inferred)
+    frame["iso3_resolved"] = resolved.astype(object).where(resolved.notna(), None)
     frame["iso3_resolution_status"] = frame["iso3_resolved"].notna().map(
         {True: "resolved", False: "unresolved"}
     )

@@ -7,6 +7,8 @@ import pytest
 from trial_transportability_atlas.project_paths import (
     MissingRequiredPathError,
     discover_external_paths,
+    discover_output_root,
+    discover_topic_output_dir,
 )
 
 
@@ -86,3 +88,27 @@ def test_discover_external_paths_rejects_broken_env_override(tmp_path: Path) -> 
         )
 
     assert "TTA_AACT_PATH" in str(excinfo.value)
+
+
+def test_discover_output_root_defaults_to_repo_outputs() -> None:
+    resolved = discover_output_root(env={})
+
+    assert resolved.name == "outputs"
+    assert resolved.parent.name == "trial-transportability-atlas"
+
+
+def test_discover_output_root_prefers_env_override(tmp_path: Path) -> None:
+    override = tmp_path / "custom-outputs"
+
+    assert discover_output_root(env={"TTA_OUTPUT_ROOT": str(override)}) == override
+
+
+def test_discover_topic_output_dir_uses_output_root_override(tmp_path: Path) -> None:
+    override = tmp_path / "custom-outputs"
+
+    resolved = discover_topic_output_dir(
+        "sglt2_inhibitors",
+        env={"TTA_OUTPUT_ROOT": str(override)},
+    )
+
+    assert resolved == override / "sglt2_inhibitors"
