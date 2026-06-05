@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 import json
 import sys
-sys.path.append("D:/Projects/trial-transportability-atlas/src")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trial_transportability_atlas.project_paths import discover_output_root
 

@@ -1,10 +1,14 @@
+import os
 import pandas as pd
 from pathlib import Path
 import json
 
+# Project root, portable (no hardcoded drive). Override with TTA_ROOT.
+_ROOT = Path(os.environ.get("TTA_ROOT", Path(__file__).resolve().parents[1]))
+
 def generate_radar_ui():
-    ledger_path = Path("D:/Projects/trial-transportability-atlas/outputs/evidence_equator/evidence_equator_ledger.csv")
-    advanced_path = Path("D:/Projects/trial-transportability-atlas/outputs/evidence_equator/advanced_sovereignty_audit.csv")
+    ledger_path = _ROOT / "outputs" / "evidence_equator" / "evidence_equator_ledger.csv"
+    advanced_path = _ROOT / "outputs" / "evidence_equator" / "advanced_sovereignty_audit.csv"
     
     if not ledger_path.exists() or not advanced_path.exists():
         print("Data not found. Run synthesis and ledger scripts first.")
@@ -164,7 +168,7 @@ def generate_radar_ui():
 </html>
     """
     
-    ui_path = Path("D:/Projects/trial-transportability-atlas/dashboard/evidence_equator_radar.html")
+    ui_path = _ROOT / "dashboard" / "evidence_equator_radar.html"
     ui_path.parent.mkdir(parents=True, exist_ok=True)
     ui_path.write_text(html_content, encoding="utf-8")
     print(f"Sovereignty Ledger UI generated at {ui_path}")

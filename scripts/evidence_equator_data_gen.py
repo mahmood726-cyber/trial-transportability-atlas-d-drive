@@ -1,6 +1,10 @@
+import os
 from pathlib import Path
 import pandas as pd
 import json
+
+# Project root, portable (no hardcoded drive). Override with TTA_ROOT.
+_ROOT = Path(os.environ.get("TTA_ROOT", Path(__file__).resolve().parents[1]))
 
 def generate_evidence_equator_data():
     """
@@ -73,7 +77,7 @@ def generate_evidence_equator_data():
     df["evidence_distance"] = df["cci"] * 0.5 # Proxy: high mismatch = high distance
     df["sovereignty_score"] = 100 / (1 + df["evidence_distance"])
     
-    output_path = Path("D:/Projects/trial-transportability-atlas/outputs/evidence_equator_mismatch.csv")
+    output_path = _ROOT / "outputs" / "evidence_equator_mismatch.csv"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
     print(f"Mismatch Radar data generated at {output_path}")

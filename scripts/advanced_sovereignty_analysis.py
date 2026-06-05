@@ -1,10 +1,12 @@
+import os
 import pandas as pd
 from pathlib import Path
 import json
 import sys
 
-# Set up PYTHONPATH for the script
-sys.path.append("D:/Projects/trial-transportability-atlas/src")
+# Make the in-repo package importable without a hardcoded drive
+# (scripts/<this>.py -> repo root is one level up, package lives in src/).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trial_transportability_atlas.project_paths import discover_external_paths, discover_output_root
 from trial_transportability_atlas.source_adapters import load_unified_context
@@ -27,7 +29,9 @@ def advanced_sovereignty_analysis():
     
     # 2. Fiscal Sovereignty Analysis (WHO GHED)
     print("Performing Fiscal Sovereignty Audit...")
-    ghed = pd.read_parquet('D:/Projects/who-data-lakehouse/data/silver/ghed/ghed_data.parquet')
+    _who_root = Path(os.environ.get("WHO_DATA_LAKEHOUSE",
+                                    Path(__file__).resolve().parents[1] / "data" / "who-data-lakehouse"))
+    ghed = pd.read_parquet(_who_root / "data" / "silver" / "ghed" / "ghed_data.parquet")
     
     # Get latest Health Exp per country
     latest_ghed = ghed.sort_values('year').groupby('location').last()[['che_pc_usd', 'code']]

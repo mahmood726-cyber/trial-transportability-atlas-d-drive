@@ -3,8 +3,8 @@ from pathlib import Path
 import json
 import sys
 
-# Set up PYTHONPATH for the script
-sys.path.append("D:/Projects/trial-transportability-atlas/src")
+# Make the in-repo package importable without a hardcoded drive.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from trial_transportability_atlas.project_paths import discover_output_root
 
