@@ -173,3 +173,39 @@ def discover_topic_output_dir(
     """Resolve one topic-specific output directory."""
 
     return discover_output_root(env=env) / topic_slug
+
+
+def discover_africa_rct_root(
+    *,
+    candidate_roots: Iterable[Path] | None = None,
+    env: Mapping[str, str] | None = None,
+) -> Path:
+    """Resolve the local AfricaRCT data root used by the evidence-equator scripts.
+
+    Resolution order: ``TTA_AFRICA_RCT_PATH`` env override, then ``<root>/AfricaRCT``
+    for each candidate drive root. Fails closed if none resolve.
+    """
+
+    env_map = env if env is not None else os.environ
+    override = env_map.get("TTA_AFRICA_RCT_PATH")
+    if override:
+        override_path = Path(override)
+        existing = _existing_path(override_path)
+        if existing is None:
+            raise MissingRequiredPathError(
+                f"TTA_AFRICA_RCT_PATH points to a missing path: {override_path}"
+            )
+        return existing
+
+    attempted: list[str] = []
+    for root in _normalize_roots(candidate_roots):
+        candidate = root / "AfricaRCT"
+        attempted.append(str(candidate))
+        existing = _existing_path(candidate)
+        if existing is not None:
+            return existing
+
+    raise MissingRequiredPathError(
+        "Unable to resolve required path 'africa_rct_root'. "
+        f"Set TTA_AFRICA_RCT_PATH or place AfricaRCT under a candidate root. Tried: {', '.join(attempted)}"
+    )

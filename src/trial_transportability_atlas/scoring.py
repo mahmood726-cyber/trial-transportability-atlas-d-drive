@@ -19,26 +19,30 @@ def calculate_transportability_score(origin_stats: pd.Series, target_stats: pd.S
     }
     
     distances = []
+    included_weight = 0.0
     for metric, weight in metrics.items():
         if metric in origin_stats and metric in target_stats:
             v_orig = origin_stats[metric]
             v_targ = target_stats[metric]
-            
+
             if pd.isna(v_orig) or pd.isna(v_targ) or v_orig == 0:
                 continue
-                
+
             # Log-normalized distance for economic metrics
             if metric == "GDP pc":
                 dist = abs(np.log10(v_orig) - np.log10(v_targ)) / 2.0 # Max log distance approx 2.0
             else:
                 dist = abs(v_orig - v_targ) / v_orig
-            
+
             distances.append(min(dist, 1.0) * weight)
-            
-    if not distances:
+            included_weight += weight
+
+    if not distances or included_weight == 0:
         return 0.0
-        
-    avg_dist = sum(distances) / sum(metrics.values())
+
+    # Normalize by the weight of metrics actually present, not the full weight set,
+    # so missing context does not artificially inflate the transportability score.
+    avg_dist = sum(distances) / included_weight
     return max(1.0 - avg_dist, 0.0)
 
 def generate_transportability_heatmap(report_df: pd.DataFrame):

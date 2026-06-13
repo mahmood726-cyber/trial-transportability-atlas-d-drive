@@ -4,22 +4,27 @@ import json
 import os
 import sys
 
-# Make the in-repo package importable without a hardcoded drive.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+# Set up PYTHONPATH for the script (repo-relative)
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from trial_transportability_atlas.source_adapters import load_unified_context
-from trial_transportability_atlas.project_paths import discover_external_paths, discover_output_root
+from trial_transportability_atlas.project_paths import (
+    discover_africa_rct_root,
+    discover_external_paths,
+    discover_output_root,
+)
 
 def calculate_deep_cci():
     paths = discover_external_paths()
     output_root = discover_output_root()
     equator_dir = output_root / "evidence_equator"
-    
+    africa_rct_root = discover_africa_rct_root()
+
     # 1. Load Extracted Trials
     df_trials = pd.read_parquet(equator_dir / "all_trials_conditions.parquet")
-    
+
     # 2. Define Africa filter
-    with open("C:/AfricaRCT/data/collected_data.json", 'r') as f:
+    with open(africa_rct_root / "data" / "collected_data.json", 'r') as f:
         collected = json.load(f)
     african_countries = list(collected['country_totals'].keys())
     

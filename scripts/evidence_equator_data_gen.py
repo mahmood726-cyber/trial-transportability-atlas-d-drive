@@ -1,21 +1,25 @@
-import os
 from pathlib import Path
 import pandas as pd
 import json
+import sys
 
-# Project root, portable (no hardcoded drive). Override with TTA_ROOT.
-_ROOT = Path(os.environ.get("TTA_ROOT", Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
+
+from trial_transportability_atlas.project_paths import (
+    discover_africa_rct_root,
+    discover_output_root,
+)
 
 def generate_evidence_equator_data():
     """
-    Synthesizes C:\\AfricaRCT audits and D:\\Projects trial data 
+    Synthesizes AfricaRCT audits and local trial data
     to generate the Mismatch Radar (CCI) dataset.
     """
-    # 1. Load Burden Data (Simulated from C:\\AfricaRCT artifacts)
+    # 1. Load Burden Data (from AfricaRCT artifacts)
     # In a real run, this would pull from ihme-data-lakehouse silver tables
     # Here we use the pre-calculated CCI data from the e156 JSONs to seed the radar
-    
-    africa_rct_root = Path("C:/AfricaRCT")
+
+    africa_rct_root = discover_africa_rct_root()
     e156_files = list(africa_rct_root.glob("e156-*-paper.json"))
     
     mismatch_records = []
@@ -77,7 +81,7 @@ def generate_evidence_equator_data():
     df["evidence_distance"] = df["cci"] * 0.5 # Proxy: high mismatch = high distance
     df["sovereignty_score"] = 100 / (1 + df["evidence_distance"])
     
-    output_path = _ROOT / "outputs" / "evidence_equator_mismatch.csv"
+    output_path = discover_output_root() / "evidence_equator_mismatch.csv"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
     print(f"Mismatch Radar data generated at {output_path}")

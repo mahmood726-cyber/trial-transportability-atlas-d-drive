@@ -71,7 +71,7 @@ def build_context_join_fixture() -> pd.DataFrame:
             continue
         rows.append(
             {
-                "iso3_resolved": "GBR",
+                "iso3": "GBR",
                 "country_name": "United Kingdom",
                 "year": 2020,
                 "source": spec.source,
@@ -89,7 +89,7 @@ def build_context_join_fixture() -> pd.DataFrame:
 def test_build_country_year_context_signals_selects_curated_values() -> None:
     signals = build_country_year_context_signals(
         trial_country_year=build_trial_country_year_fixture(),
-        context_joined=build_context_join_fixture(),
+        context_long=build_context_join_fixture(),
     )
 
     uk = signals.loc[signals["iso3"] == "GBR"].iloc[0]
@@ -103,7 +103,7 @@ def test_build_country_year_transportability_scores_country_years() -> None:
     country_year = build_country_year_transportability(
         trial_country_year=build_trial_country_year_fixture(),
         effect_candidates=build_effect_candidates_fixture(),
-        context_joined=build_context_join_fixture(),
+        context_long=build_context_join_fixture(),
     )
 
     uk = country_year.loc[country_year["iso3"] == "GBR"].iloc[0]
@@ -129,7 +129,7 @@ def test_build_evidence_gap_summary_aggregates_latest_rows() -> None:
         build_country_year_transportability(
             trial_country_year=build_trial_country_year_fixture(),
             effect_candidates=build_effect_candidates_fixture(),
-            context_joined=build_context_join_fixture(),
+            context_long=build_context_join_fixture(),
         )
     )
 
@@ -142,7 +142,7 @@ def test_build_synthesis_output_adds_contract_columns_fail_closed() -> None:
     transportability = build_country_year_transportability(
         trial_country_year=build_trial_country_year_fixture(),
         effect_candidates=build_effect_candidates_fixture(),
-        context_joined=build_context_join_fixture(),
+        context_long=build_context_join_fixture(),
     )
 
     synthesis_output = build_synthesis_output(

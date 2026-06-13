@@ -3,10 +3,13 @@ from pathlib import Path
 import json
 import sys
 
-# Make the in-repo package importable without a hardcoded drive.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+# Set up PYTHONPATH for the script (repo-relative)
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from trial_transportability_atlas.project_paths import discover_output_root
+from trial_transportability_atlas.project_paths import (
+    discover_africa_rct_root,
+    discover_output_root,
+)
 
 def classify_source(s):
     s = str(s).upper()
@@ -28,7 +31,8 @@ def generate_sovereignty_ledger():
     # 2. Funding Archetype Classification
     print("Classifying funding archetypes...")
     # Redefine is_africa
-    with open("C:/AfricaRCT/data/collected_data.json", 'r') as f:
+    africa_rct_root = discover_africa_rct_root()
+    with open(africa_rct_root / "data" / "collected_data.json", 'r') as f:
         collected = json.load(f)
     african_countries = list(collected['country_totals'].keys())
     

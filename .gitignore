@@ -10,3 +10,9 @@ output/
 outputs/
 dist/
 build/
+
+# Auto-generated Sentinel / Overmind scan artifacts
+STUCK_FAILURES.md
+STUCK_FAILURES.jsonl
+sentinel-findings.md
+sentinel-findings.jsonl
