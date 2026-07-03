@@ -12,8 +12,14 @@ import pandas as pd
 from trial_transportability_atlas.contracts import SYNTHESIS_OUTPUT_CONTRACT
 from trial_transportability_atlas.context_join import enrich_trial_country_year_iso3
 from trial_transportability_atlas.topics import PHASE1_TOPIC, TopicSpec, resolve_topic_spec
-from trial_transportability_atlas.source_adapters import load_unified_context
-from trial_transportability_atlas.project_paths import discover_external_paths
+from trial_transportability_atlas.source_adapters import (
+    SourceAdapterError,
+    load_unified_context,
+)
+from trial_transportability_atlas.project_paths import (
+    MissingRequiredPathError,
+    discover_external_paths,
+)
 
 
 @dataclass(frozen=True)
@@ -127,6 +133,45 @@ def _split_joined(value: object) -> set[str]:
     return {part for part in str(value).split(";") if part}
 
 
+def _normalize_context_frame(context: pd.DataFrame) -> pd.DataFrame:
+    """Return a signal-selection frame keyed by a canonical ``iso3`` column.
+
+    Accepts both the raw unified ``context_long`` schema (keyed by ``iso3``)
+    and the per-country-year ``context_joined`` schema (keyed by
+    ``iso3_resolved`` and carrying a ``context_available_flag``). When the
+    availability flag is present, only rows flagged as available are retained
+    — this preserves the historical ``context_joined`` selection semantics
+    without changing any selected value for the flag-free ``context_long``
+    path used in production.
+    """
+
+    frame = context
+    if "context_available_flag" in frame.columns:
+        frame = frame.loc[frame["context_available_flag"].astype("boolean").fillna(False)]
+    if "iso3" not in frame.columns:
+        if "iso3_resolved" not in frame.columns:
+            raise KeyError(
+                "context frame must expose an 'iso3' or 'iso3_resolved' column; "
+                f"available: {', '.join(map(str, context.columns))}"
+            )
+        frame = frame.rename(columns={"iso3_resolved": "iso3"})
+    return frame.copy()
+
+
+def _resolve_context_argument(
+    context_long: pd.DataFrame | None,
+    context_joined: pd.DataFrame | None,
+) -> pd.DataFrame:
+    """Accept the ``context_long`` or the legacy ``context_joined`` keyword."""
+
+    if context_long is not None and context_joined is not None:
+        raise TypeError("Pass either 'context_long' or 'context_joined', not both.")
+    resolved = context_long if context_long is not None else context_joined
+    if resolved is None:
+        raise TypeError("A context frame is required ('context_long' or 'context_joined').")
+    return resolved
+
+
 def _preference_rank(series: pd.Series, preferred: str | None) -> pd.Series:
     if preferred is None:
         return series.notna().astype(int)
@@ -166,9 +211,21 @@ def _build_nct_evidence_summary(effect_candidates: pd.DataFrame) -> pd.DataFrame
 
 def build_country_year_context_signals(
     trial_country_year: pd.DataFrame,
-    context_long: pd.DataFrame,
+    context_long: pd.DataFrame | None = None,
+    *,
+    context_joined: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Select one curated signal value per country-year with LVCF support."""
+    """Select one curated signal value per country-year with LVCF support.
+
+    The context frame may be supplied either as the raw unified
+    ``context_long`` surface or, for backward compatibility, as the
+    per-country-year ``context_joined`` surface. See
+    :func:`_normalize_context_frame` for the accepted schemas.
+    """
+
+    context = _normalize_context_frame(
+        _resolve_context_argument(context_long, context_joined)
+    )
 
     base = enrich_trial_country_year_iso3(trial_country_year)
     country_years = (
@@ -181,9 +238,9 @@ def build_country_year_context_signals(
 
     result = country_years.copy()
     for spec in CORE_SIGNAL_SPECS:
-        candidates = context_long.loc[
-            context_long["source"].eq(spec.source)
-            & context_long["measure"].eq(spec.measure)
+        candidates = context.loc[
+            context["source"].eq(spec.source)
+            & context["measure"].eq(spec.measure)
         ].copy()
         if candidates.empty:
             result[f"signal_{spec.key}"] = pd.NA
@@ -233,14 +290,21 @@ def build_country_year_context_signals(
 def build_country_year_transportability(
     trial_country_year: pd.DataFrame,
     effect_candidates: pd.DataFrame,
-    context_long: pd.DataFrame,
+    context_long: pd.DataFrame | None = None,
+    *,
+    context_joined: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Score trial-footprint country-years for transportability readiness."""
+    """Score trial-footprint country-years for transportability readiness.
 
+    Accepts the context surface as either ``context_long`` or the legacy
+    ``context_joined`` keyword.
+    """
+
+    context = _resolve_context_argument(context_long, context_joined)
     evidence_by_nct = _build_nct_evidence_summary(effect_candidates)
     country_year_signals = build_country_year_context_signals(
         trial_country_year=trial_country_year,
-        context_long=context_long,
+        context_long=context,
     )
 
     trial_rows = enrich_trial_country_year_iso3(trial_country_year)
@@ -481,6 +545,56 @@ def _hash_source_paths(paths: list[Path]) -> str:
     return digest.hexdigest()
 
 
+def _load_unified_context_or_none() -> pd.DataFrame | None:
+    """Load the full unified context surface, or ``None`` if it is unavailable.
+
+    Returns ``None`` when the external source repos cannot be resolved
+    (:class:`MissingRequiredPathError`) or when a resolved repo is missing the
+    required dataset files (:class:`SourceAdapterError`), so callers can fall
+    back to the local joined context surface.
+    """
+
+    try:
+        paths = discover_external_paths()
+        return load_unified_context(
+            ihme_repo_root=paths.ihme_repo,
+            wb_repo_root=paths.wb_repo,
+            who_repo_root=paths.who_repo,
+        )
+    except (MissingRequiredPathError, SourceAdapterError):
+        return None
+
+
+def _load_materialize_context(
+    *,
+    context_joined_path: Path,
+    use_unified_context: bool | None,
+) -> pd.DataFrame:
+    """Resolve the context surface used by :func:`materialize_transportability_outputs`."""
+
+    if use_unified_context is True:
+        context = _load_unified_context_or_none()
+        if context is None:
+            raise MissingRequiredPathError(
+                "use_unified_context=True requires the IHME/WHO/WB source repos, "
+                "but they could not be resolved."
+            )
+        return context
+
+    if use_unified_context is None:
+        context = _load_unified_context_or_none()
+        if context is not None:
+            return context
+
+    if not context_joined_path.exists():
+        raise FileNotFoundError(
+            f"Local context surface not found: {context_joined_path}. "
+            "Provide the joined context parquet or set use_unified_context=True "
+            "with the source repos available."
+        )
+    return pd.read_parquet(context_joined_path)
+
+
 def _resolve_transport_topic(trial_output_dir: Path, explicit_topic: TopicSpec | None) -> TopicSpec:
     if explicit_topic is not None:
         return explicit_topic
@@ -498,8 +612,23 @@ def materialize_transportability_outputs(
     trial_output_dir: Path,
     *,
     topic: TopicSpec | None = None,
+    use_unified_context: bool | None = None,
 ) -> dict[str, object]:
-    """Write transportability-scored country-year outputs from existing parquet surfaces."""
+    """Write transportability-scored country-year outputs from existing parquet surfaces.
+
+    Context resolution:
+
+    - ``use_unified_context=True`` forces loading the full unified
+      ``context_long`` surface (enables cross-year LVCF fill) and raises if
+      the external IHME/WHO/WB repos cannot be resolved.
+    - ``use_unified_context=False`` uses only the local
+      ``context_joined.parquet`` written alongside the trial surfaces
+      (fully offline; exact-year selection with per-country carry-forward
+      limited to the joined rows).
+    - ``use_unified_context=None`` (default) prefers the unified surface when
+      the external repos resolve, and otherwise falls back to the local
+      ``context_joined.parquet``.
+    """
 
     trial_output_dir = Path(trial_output_dir)
     trial_country_year_path = trial_output_dir / "trial_country_year.parquet"
@@ -510,15 +639,12 @@ def materialize_transportability_outputs(
 
     trial_country_year = pd.read_parquet(trial_country_year_path)
     effect_candidates = pd.read_parquet(effect_candidates_path)
-    
-    # Load full context for LVCF support
-    paths = discover_external_paths()
-    context_long = load_unified_context(
-        ihme_repo_root=paths.ihme_repo,
-        wb_repo_root=paths.wb_repo,
-        who_repo_root=paths.who_repo,
+
+    context_long = _load_materialize_context(
+        context_joined_path=context_joined_path,
+        use_unified_context=use_unified_context,
     )
-    
+
     resolved_topic = _resolve_transport_topic(trial_output_dir, topic)
     source_manifest_id = _hash_source_paths(
         [
