@@ -8,7 +8,7 @@ import re
 from typing import Iterable, Mapping
 
 
-DEFAULT_CANDIDATE_ROOTS = (Path("D:/"), Path("C:/"))
+DEFAULT_CANDIDATE_ROOTS = (Path("D:/"), Path("C:/"), Path("F:/"))
 WINDOWS_DRIVE_PATH_RE = re.compile(r"^(?P<drive>[A-Za-z]):[\\/](?P<rest>.*)$")
 
 
