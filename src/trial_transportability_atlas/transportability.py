@@ -116,6 +116,30 @@ CORE_SIGNAL_SPECS = (
 )
 
 
+def _require_columns(frame: pd.DataFrame, columns: tuple[str, ...], *, label: str) -> None:
+    """Raise a clear error if ``frame`` is missing any required column."""
+
+    if not isinstance(frame, pd.DataFrame):
+        raise TypeError(f"{label} must be a pandas DataFrame, got {type(frame).__name__}.")
+    missing = [column for column in columns if column not in frame.columns]
+    if missing:
+        available = ", ".join(map(str, frame.columns)) or "<none>"
+        raise ValueError(
+            f"{label} is missing required column(s): {', '.join(missing)}. "
+            f"Available columns: {available}."
+        )
+
+
+TRIAL_COUNTRY_YEAR_REQUIRED_COLUMNS = ("nct_id", "country_name", "iso3", "year")
+EFFECT_CANDIDATES_REQUIRED_COLUMNS = (
+    "candidate_id",
+    "nct_id",
+    "candidate_family",
+    "comparable_flag",
+)
+CONTEXT_REQUIRED_COLUMNS = ("year", "source", "measure", "metric", "sex", "age_group", "value")
+
+
 def _join_unique(values: pd.Series) -> str:
     seen = sorted(
         {
@@ -223,9 +247,14 @@ def build_country_year_context_signals(
     :func:`_normalize_context_frame` for the accepted schemas.
     """
 
-    context = _normalize_context_frame(
-        _resolve_context_argument(context_long, context_joined)
+    _require_columns(
+        trial_country_year,
+        TRIAL_COUNTRY_YEAR_REQUIRED_COLUMNS,
+        label="trial_country_year",
     )
+    resolved_context = _resolve_context_argument(context_long, context_joined)
+    _require_columns(resolved_context, CONTEXT_REQUIRED_COLUMNS, label="context frame")
+    context = _normalize_context_frame(resolved_context)
 
     base = enrich_trial_country_year_iso3(trial_country_year)
     country_years = (
@@ -300,6 +329,11 @@ def build_country_year_transportability(
     ``context_joined`` keyword.
     """
 
+    _require_columns(
+        effect_candidates,
+        EFFECT_CANDIDATES_REQUIRED_COLUMNS,
+        label="effect_candidates",
+    )
     context = _resolve_context_argument(context_long, context_joined)
     evidence_by_nct = _build_nct_evidence_summary(effect_candidates)
     country_year_signals = build_country_year_context_signals(
